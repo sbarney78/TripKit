@@ -3,6 +3,7 @@ package au.barney.tripkit.ui.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import au.barney.tripkit.data.model.MasterItem
+import au.barney.tripkit.data.model.MasterItemWithCount
 import au.barney.tripkit.data.model.MasterSubItem
 import au.barney.tripkit.data.repository.TripKitRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -17,6 +18,9 @@ class MasterItemViewModel(
 
     private val _masterItems = MutableStateFlow<List<MasterItem>>(emptyList())
     val masterItems: StateFlow<List<MasterItem>> = _masterItems
+
+    private val _masterItemsWithCount = MutableStateFlow<List<MasterItemWithCount>>(emptyList())
+    val masterItemsWithCount: StateFlow<List<MasterItemWithCount>> = _masterItemsWithCount
 
     private val _masterSubItems = MutableStateFlow<List<MasterSubItem>>(emptyList())
     val masterSubItems: StateFlow<List<MasterSubItem>> = _masterSubItems
@@ -37,15 +41,28 @@ class MasterItemViewModel(
     fun loadMasterItems() {
         viewModelScope.launch {
             _loading.value = true
-            repository.getMasterItems()
-                .catch { e ->
-                    _error.value = e.message ?: "Unknown error"
-                    _loading.value = false
-                }
-                .collect { items ->
-                    _masterItems.value = items
-                    _loading.value = false
-                }
+            
+            // Collect master items
+            launch {
+                repository.getMasterItems()
+                    .catch { e -> _error.value = e.message }
+                    .collect { items ->
+                        _masterItems.value = items
+                    }
+            }
+
+            // Collect master items with count
+            launch {
+                repository.getMasterItemsWithCount()
+                    .catch { e ->
+                        _error.value = e.message ?: "Unknown error"
+                        _loading.value = false
+                    }
+                    .collect { items ->
+                        _masterItemsWithCount.value = items
+                        _loading.value = false
+                    }
+            }
         }
     }
 

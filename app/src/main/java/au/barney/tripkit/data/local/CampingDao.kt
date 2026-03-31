@@ -167,6 +167,18 @@ interface TripKitDao {
     suspend fun toggleIngredient(ingredientId: Int, isChecked: Int)
 
     // ------------------ MASTER ITEMS ------------------
+    @Query("""
+        SELECT *, (SELECT COUNT(*) FROM master_sub_items WHERE master_item_id = master_items.id) as subItemCount 
+        FROM master_items ORDER BY name ASC
+    """)
+    fun getMasterItemsWithCount(): Flow<List<MasterItemWithCount>>
+
+    @Query("""
+        SELECT *, (SELECT COUNT(*) FROM master_sub_items WHERE master_item_id = master_items.id) as subItemCount 
+        FROM master_items ORDER BY name ASC
+    """)
+    suspend fun getMasterItemsSyncListWithCount(): List<MasterItemWithCount>
+
     @Query("SELECT * FROM master_items ORDER BY name ASC")
     fun getMasterItems(): Flow<List<MasterItem>>
 

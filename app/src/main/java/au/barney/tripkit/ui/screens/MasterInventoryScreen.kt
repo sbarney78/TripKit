@@ -16,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import au.barney.tripkit.data.model.MasterItem
+import au.barney.tripkit.data.model.MasterItemWithCount
 import au.barney.tripkit.ui.viewmodel.MasterItemViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -25,7 +26,7 @@ fun MasterInventoryScreen(
     onBack: () -> Unit,
     onOpenContainer: (Int) -> Unit
 ) {
-    val items by viewModel.masterItems.collectAsState()
+    val itemsWithCount by viewModel.masterItemsWithCount.collectAsState()
     var showAddDialog by remember { mutableStateOf(false) }
     var newItemName by remember { mutableStateOf("") }
     var isContainer by remember { mutableStateOf(false) }
@@ -133,15 +134,16 @@ fun MasterInventoryScreen(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            items(items) { item ->
+            items(itemsWithCount) { itemWithCount ->
                 MasterItemRow(
-                    item = item,
-                    onOpenContainer = { onOpenContainer(item.id) },
+                    item = itemWithCount.item,
+                    subItemCount = itemWithCount.subItemCount,
+                    onOpenContainer = { onOpenContainer(itemWithCount.item.id) },
                     onEdit = {
-                        itemToEdit = item
+                        itemToEdit = itemWithCount.item
                         showEditDialog = true
                     },
-                    onDelete = { viewModel.deleteMasterItem(item.id) }
+                    onDelete = { viewModel.deleteMasterItem(itemWithCount.item.id) }
                 )
             }
         }
@@ -152,6 +154,7 @@ fun MasterInventoryScreen(
 @Composable
 fun MasterItemRow(
     item: MasterItem,
+    subItemCount: Int,
     onOpenContainer: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit
@@ -180,6 +183,12 @@ fun MasterItemRow(
                 }
                 
                 if (item.is_container) {
+                    Text(
+                        text = "Items: $subItemCount",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(end = 8.dp)
+                    )
                     Text(">", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(start = 4.dp))
                 }
             }

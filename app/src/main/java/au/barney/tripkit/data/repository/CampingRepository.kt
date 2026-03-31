@@ -421,6 +421,8 @@ class TripKitRepository(private val dao: TripKitDao) {
     // ------------------ MASTER ITEMS ------------------
     
     fun getMasterItems(): Flow<List<MasterItem>> = dao.getMasterItems()
+
+    fun getMasterItemsWithCount(): Flow<List<MasterItemWithCount>> = dao.getMasterItemsWithCount()
     
     suspend fun getMasterItem(id: Int) = dao.getMasterItem(id)
 
