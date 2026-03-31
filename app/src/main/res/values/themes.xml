@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.TripKit" parent="android:Theme.Material.Light.NoActionBar" />
+
+    <style name="Theme.TripKit.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">#F8BBD0</item> <!-- primaryContainer like color (pinkish/maroon light) -->
+        <item name="windowSplashScreenAnimatedIcon">@android:color/transparent</item>
+        <item name="postSplashScreenTheme">@style/Theme.TripKit</item>
+    </style>
+</resources>
