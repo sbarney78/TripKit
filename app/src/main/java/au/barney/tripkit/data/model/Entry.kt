@@ -1,5 +1,6 @@
 package au.barney.tripkit.data.model
 
+import androidx.room.Embedded
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
@@ -26,4 +27,9 @@ data class Entry(
     val is_checked: Int,
     val notes: String?,
     val list_id: Int
+)
+
+data class EntryWithCount(
+    @Embedded val entry: Entry,
+    val subItemCount: Int
 )

@@ -30,13 +30,13 @@ fun EntryListScreen(
     listId: Int,
     viewModel: EntryViewModel,
     itemViewModel: ItemViewModel,
-    masterItemViewModel: MasterItemViewModel, // ADDED
+    masterItemViewModel: MasterItemViewModel,
     onOpenEntryItems: (Int) -> Unit,
     onAddEntry: () -> Unit,
     onEditEntry: (Int) -> Unit,
     onBack: () -> Unit
 ) {
-    val entries by viewModel.entries.collectAsState()
+    val entriesWithCount by viewModel.entriesWithCount.collectAsState()
     val allItems by itemViewModel.allItems.collectAsState()
     val loading by viewModel.loading.collectAsState()
     val error by viewModel.error.collectAsState()
@@ -66,7 +66,7 @@ fun EntryListScreen(
                             PdfGenerator.generateInventoryPdf(
                                 context = context,
                                 listName = currentList?.name ?: "List_$listId",
-                                entries = entries,
+                                entries = entriesWithCount.map { it.entry },
                                 allItems = allItems.groupBy { it.entry_id }
                             )
                         }
@@ -116,20 +116,21 @@ fun EntryListScreen(
                         contentPadding = PaddingValues(16.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        items(entries) { entry ->
+                        items(entriesWithCount) { itemWithCount ->
                             EntryRow(
-                                entry = entry,
+                                entry = itemWithCount.entry,
+                                subItemCount = itemWithCount.subItemCount,
                                 onToggle = { checked ->
-                                    viewModel.toggleEntry(entry.entry_id, checked, listId)
+                                    viewModel.toggleEntry(itemWithCount.entry.entry_id, checked, listId)
                                 },
                                 onClick = {
-                                    if (entry.entry_type == "container") {
-                                        onOpenEntryItems(entry.entry_id)
+                                    if (itemWithCount.entry.entry_type == "container") {
+                                        onOpenEntryItems(itemWithCount.entry.entry_id)
                                     }
                                 },
-                                onEdit = { onEditEntry(entry.entry_id) },
+                                onEdit = { onEditEntry(itemWithCount.entry.entry_id) },
                                 onDelete = {
-                                    viewModel.deleteEntry(entry.entry_id, listId)
+                                    viewModel.deleteEntry(itemWithCount.entry.entry_id, listId)
                                 }
                             )
                         }
@@ -144,6 +145,7 @@ fun EntryListScreen(
 @Composable
 fun EntryRow(
     entry: Entry,
+    subItemCount: Int,
     onToggle: (Boolean) -> Unit,
     onClick: () -> Unit,
     onEdit: () -> Unit,
@@ -199,6 +201,12 @@ fun EntryRow(
                 }
 
                 if (isContainer) {
+                    Text(
+                        text = "Items: $subItemCount",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(end = 8.dp)
+                    )
                     Text(
                         text = ">",
                         style = MaterialTheme.typography.titleLarge,

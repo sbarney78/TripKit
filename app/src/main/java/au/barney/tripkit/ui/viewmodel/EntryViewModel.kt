@@ -3,6 +3,7 @@ package au.barney.tripkit.ui.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import au.barney.tripkit.data.model.Entry
+import au.barney.tripkit.data.model.EntryWithCount
 import au.barney.tripkit.data.model.ListItem
 import au.barney.tripkit.data.repository.TripKitRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -16,6 +17,9 @@ class EntryViewModel(
 
     private val _entries = MutableStateFlow<List<Entry>>(emptyList())
     val entries: StateFlow<List<Entry>> = _entries
+
+    private val _entriesWithCount = MutableStateFlow<List<EntryWithCount>>(emptyList())
+    val entriesWithCount: StateFlow<List<EntryWithCount>> = _entriesWithCount
 
     private val _loading = MutableStateFlow(false)
     val loading: StateFlow<Boolean> = _loading
@@ -42,15 +46,27 @@ class EntryViewModel(
                 _error.value = e.message
             }
 
-            repository.getEntries(listId)
-                .catch { e ->
-                    _error.value = e.message ?: "Unknown error"
-                    _loading.value = false
-                }
-                .collect { entriesList ->
-                    _entries.value = entriesList
-                    _loading.value = false
-                }
+            // Load regular entries
+            launch {
+                repository.getEntries(listId)
+                    .catch { e -> _error.value = e.message ?: "Unknown error" }
+                    .collect { entriesList ->
+                        _entries.value = entriesList
+                    }
+            }
+
+            // Load entries with count
+            launch {
+                repository.getEntriesWithCount(listId)
+                    .catch { e ->
+                        _error.value = e.message ?: "Unknown error"
+                        _loading.value = false
+                    }
+                    .collect { list ->
+                        _entriesWithCount.value = list
+                        _loading.value = false
+                    }
+            }
         }
     }
 

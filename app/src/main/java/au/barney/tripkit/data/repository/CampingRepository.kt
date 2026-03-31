@@ -128,6 +128,8 @@ class TripKitRepository(private val dao: TripKitDao) {
 
     fun getEntries(listId: Int): Flow<List<Entry>> = dao.getEntries(listId)
 
+    fun getEntriesWithCount(listId: Int): Flow<List<EntryWithCount>> = dao.getEntriesWithCount(listId)
+
     fun getPackingProgress(listId: Int): Flow<Pair<Int, Int>> {
         return combine(
             dao.getTotalEntriesCount(listId),

@@ -24,10 +24,16 @@ interface TripKitDao {
     suspend fun deleteList(listId: Int)
 
     // ------------------ ENTRIES ------------------
-    @Query("SELECT * FROM entries WHERE list_id = :listId")
+    @Query("SELECT * FROM entries WHERE list_id = :listId ORDER BY entry_name ASC")
     fun getEntries(listId: Int): Flow<List<Entry>>
 
-    @Query("SELECT * FROM entries WHERE list_id = :listId")
+    @Query("""
+        SELECT *, (SELECT COUNT(*) FROM items WHERE entry_id = entries.entry_id) as subItemCount 
+        FROM entries WHERE list_id = :listId ORDER BY entry_name ASC
+    """)
+    fun getEntriesWithCount(listId: Int): Flow<List<EntryWithCount>>
+
+    @Query("SELECT * FROM entries WHERE list_id = :listId ORDER BY entry_name ASC")
     suspend fun getEntriesSync(listId: Int): List<Entry>
 
     @Query("SELECT * FROM entries WHERE entry_id = :entryId")
@@ -52,16 +58,16 @@ interface TripKitDao {
     fun getCheckedEntriesCount(listId: Int): Flow<Int>
 
     // ------------------ ITEMS ------------------
-    @Query("SELECT * FROM items WHERE entry_id = :entryId")
+    @Query("SELECT * FROM items WHERE entry_id = :entryId ORDER BY item_name ASC")
     fun getItems(entryId: Int): Flow<List<Item>>
 
-    @Query("SELECT * FROM items WHERE entry_id = :entryId")
+    @Query("SELECT * FROM items WHERE entry_id = :entryId ORDER BY item_name ASC")
     suspend fun getItemsSync(entryId: Int): List<Item>
 
-    @Query("SELECT * FROM items WHERE entry_id IN (SELECT entry_id FROM entries WHERE list_id = :listId)")
+    @Query("SELECT * FROM items WHERE entry_id IN (SELECT entry_id FROM entries WHERE list_id = :listId) ORDER BY item_name ASC")
     fun getAllItemsForList(listId: Int): Flow<List<Item>>
 
-    @Query("SELECT * FROM items WHERE entry_id IN (SELECT entry_id FROM entries WHERE list_id = :listId)")
+    @Query("SELECT * FROM items WHERE entry_id IN (SELECT entry_id FROM entries WHERE list_id = :listId) ORDER BY item_name ASC")
     suspend fun getAllItemsForListSync(listId: Int): List<Item>
 
     @Query("SELECT * FROM items WHERE item_id = :itemId")
