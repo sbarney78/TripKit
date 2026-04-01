@@ -1,6 +1,7 @@
 package au.barney.tripkit.data.local
 
 import android.content.Context
+import androidx.room.AutoMigration
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
@@ -19,7 +20,7 @@ import au.barney.tripkit.data.model.*
         ItineraryItem::class
     ],
     version = 5,
-    exportSchema = false
+    exportSchema = true
 )
 abstract class TripKitDatabase : RoomDatabase() {
 
@@ -36,7 +37,7 @@ abstract class TripKitDatabase : RoomDatabase() {
                     TripKitDatabase::class.java,
                     "tripkit_database"
                 )
-                    .fallbackToDestructiveMigration()
+                    // .fallbackToDestructiveMigration() // REMOVED to prevent data loss
                     .build()
                 INSTANCE = instance
                 instance
