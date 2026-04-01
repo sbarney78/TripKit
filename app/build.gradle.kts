@@ -2,15 +2,17 @@ plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("kotlin-kapt")
+    id("org.jetbrains.kotlin.plugin.compose")
 }
 
 android {
     namespace = "au.barney.tripkit"
-    compileSdk = 35
+    compileSdk = 36
+    compileSdkExtension = 19
 
     defaultConfig {
         applicationId = "au.barney.tripkit"
-        minSdk = 24
+        minSdk = 31
         targetSdk = 35
         versionCode = 4
         versionName = "1.3"
@@ -47,10 +49,7 @@ android {
 
     buildFeatures {
         compose = true
-    }
-
-    composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.14"
+        viewBinding = true
     }
 
     packaging {
@@ -65,7 +64,7 @@ dependencies {
     implementation("androidx.core:core-splashscreen:1.0.1")
 
     // Room
-    val roomVersion = "2.6.1"
+    val roomVersion = "2.7.0-alpha11"
     implementation("androidx.room:room-runtime:$roomVersion")
     implementation("androidx.room:room-ktx:$roomVersion")
     kapt("androidx.room:room-compiler:$roomVersion")
@@ -73,8 +72,8 @@ dependencies {
     // Gson for JSON Export/Import
     implementation("com.google.code.gson:gson:2.10.1")
 
-    // Compose BOM that matched compiler 1.5.14
-    val composeBom = platform("androidx.compose:compose-bom:2024.04.01")
+    // Compose
+    val composeBom = platform("androidx.compose:compose-bom:2024.10.01")
     implementation(composeBom)
     androidTestImplementation(composeBom)
 
@@ -83,26 +82,33 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-tooling")
 
     implementation("androidx.compose.material3:material3")
-    implementation("androidx.activity:activity-compose:1.9.0")
+    implementation("androidx.activity:activity-compose:1.9.3")
     
     // Icons
     implementation("androidx.compose.material:material-icons-extended")
 
     // Image Loading (Coil)
-    implementation("io.coil-kt:coil-compose:2.6.0")
+    implementation("io.coil-kt:coil-compose:2.7.0")
 
     // Lifecycle
-    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.3")
-    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.3")
+    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
 
     // Navigation
-    implementation("androidx.navigation:navigation-compose:2.7.7")
+    implementation("androidx.navigation:navigation-compose:2.8.4")
 
     // Coroutines
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
 
     // Core KTX
-    implementation("androidx.core:core-ktx:1.13.1")
+    implementation("androidx.core:core-ktx:1.15.0")
+
+    // PDF Viewer
+    implementation("androidx.pdf:pdf-viewer-fragment:1.0.0-alpha16")
+    implementation("androidx.fragment:fragment-ktx:1.8.5")
+    implementation("androidx.appcompat:appcompat:1.7.0")
+    implementation("androidx.compose.ui:ui-viewbinding")
+    implementation("com.google.android.material:material:1.12.0")
 
     // Testing
     testImplementation("junit:junit:4.13.2")

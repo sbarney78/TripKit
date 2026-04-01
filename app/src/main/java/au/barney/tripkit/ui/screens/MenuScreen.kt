@@ -29,7 +29,7 @@ fun MenuScreen(
     onBack: () -> Unit,
     onAddMeal: () -> Unit,
     onEditMeal: (MenuItem) -> Unit,
-    onCreatePdf: (Int) -> Unit
+    onViewPdf: (String) -> Unit
 ) {
     val menu by viewModel.menu.collectAsState()
     val loading by viewModel.loading.collectAsState()
@@ -54,7 +54,8 @@ fun MenuScreen(
                 },
                 actions = {
                     IconButton(onClick = { 
-                        PdfGenerator.generateMenuPdf(context, currentList?.name ?: "List_$listId", menu)
+                        val file = PdfGenerator.generateMenuPdf(context, currentList?.name ?: "List_$listId", menu)
+                        file?.let { onViewPdf(it.absolutePath) }
                     }) {
                         Icon(Icons.Default.PictureAsPdf, contentDescription = "PDF", tint = MaterialTheme.colorScheme.onPrimaryContainer)
                     }

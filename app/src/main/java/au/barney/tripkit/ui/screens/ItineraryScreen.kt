@@ -31,7 +31,8 @@ import java.util.concurrent.TimeUnit
 fun ItineraryScreen(
     listId: Int,
     viewModel: ItineraryViewModel,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onViewPdf: (String) -> Unit
 ) {
     val itinerary by viewModel.itinerary.collectAsState()
     val currentList by viewModel.currentList.collectAsState()
@@ -95,7 +96,8 @@ fun ItineraryScreen(
                 },
                 actions = {
                     IconButton(onClick = {
-                        PdfGenerator.generateItineraryPdf(context, currentList?.name ?: "List_$listId", itinerary)
+                        val file = PdfGenerator.generateItineraryPdf(context, currentList?.name ?: "List_$listId", itinerary)
+                        file?.let { onViewPdf(it.absolutePath) }
                     }) {
                         Icon(Icons.Default.PictureAsPdf, contentDescription = "PDF", tint = MaterialTheme.colorScheme.onPrimaryContainer)
                     }
@@ -247,48 +249,29 @@ fun ItineraryCard(
                     // Calculate and Show Duration
                     val durationText = try {
                         val startD = sdfFullDate.parse(item.day)
-                        val startT = if (item.time.isNotBlank()) sdfFullTime.parse(item.time) else null
+                        val endDayStr = if (!item.departure_day.isNullOrBlank()) item.departure_day else item.day
+                        val endD = sdfFullDate.parse(endDayStr!!)
                         
-                        if (startD != null) {
-                            val startCal = Calendar.getInstance().apply {
-                                time = startD
-                                if (startT != null) {
-                                    val tCal = Calendar.getInstance().apply { time = startT }
-                                    set(Calendar.HOUR_OF_DAY, tCal.get(Calendar.HOUR_OF_DAY))
-                                    set(Calendar.MINUTE, tCal.get(Calendar.MINUTE))
-                                    set(Calendar.SECOND, 0)
-                                    set(Calendar.MILLISECOND, 0)
-                                }
-                            }
-                            
-                            val endDayStr = if (hasDepDay) item.departure_day else item.day
-                            val endD = sdfFullDate.parse(endDayStr!!)
-                            val endT = if (!item.departure_time.isNullOrBlank()) sdfFullTime.parse(item.departure_time!!) else null
-                            
-                            if (endD != null) {
-                                val endCal = Calendar.getInstance().apply {
-                                    time = endD
-                                    if (endT != null) {
-                                        val tCal = Calendar.getInstance().apply { time = endT }
-                                        set(Calendar.HOUR_OF_DAY, tCal.get(Calendar.HOUR_OF_DAY))
-                                        set(Calendar.MINUTE, tCal.get(Calendar.MINUTE))
-                                        set(Calendar.SECOND, 0)
-                                        set(Calendar.MILLISECOND, 0)
-                                    }
-                                }
+                        if (startD != null && endD != null) {
+                            if (startD.before(endD)) {
+                                // Multi-day: Show nights
+                                val diffInMillis = endD.time - startD.time
+                                val nights = TimeUnit.MILLISECONDS.toDays(diffInMillis)
+                                if (nights > 0) "$nights night${if (nights > 1) "s" else ""}" else null
+                            } else {
+                                // Same day: Show hours and minutes
+                                val startT = if (item.time.isNotBlank()) sdfFullTime.parse(item.time) else null
+                                val endT = if (!item.departure_time.isNullOrBlank()) sdfFullTime.parse(item.departure_time!!) else null
                                 
-                                val diffInMillis = endCal.timeInMillis - startCal.timeInMillis
-                                if (diffInMillis > 0) {
-                                    val hours = TimeUnit.MILLISECONDS.toHours(diffInMillis)
-                                    val minutes = TimeUnit.MILLISECONDS.toMinutes(diffInMillis) % 60
-                                    val days = hours / 24
-                                    val remainingHours = hours % 24
-                                    
-                                    if (days > 0) "${days}d ${remainingHours}h ${minutes}m"
-                                    else if (hours > 0) "${hours}h ${minutes}m"
-                                    else "${minutes}m"
+                                if (startT != null && endT != null) {
+                                    val diffInMillis = endT.time - startT.time
+                                    if (diffInMillis > 0) {
+                                        val hours = TimeUnit.MILLISECONDS.toHours(diffInMillis)
+                                        val minutes = TimeUnit.MILLISECONDS.toMinutes(diffInMillis) % 60
+                                        if (hours > 0) "${hours}h ${minutes}m" else "${minutes}m"
+                                    } else null
                                 } else null
-                            } else null
+                            }
                         } else null
                     } catch (e: Exception) { null }
 
@@ -362,8 +345,8 @@ fun ItineraryCard(
                         text = { Text("Navigate") },
                         onClick = {
                             expanded = false
-                            val gmmIntentUri = Uri.parse("google.navigation:q=${Uri.encode(item.location)}")
-                            val mapIntent = Intent(Intent.ACTION_VIEW, gmmIntentUri)
+                            val uri = Uri.parse("geo:0,0?q=${Uri.encode(item.location)}")
+                            val mapIntent = Intent(Intent.ACTION_VIEW, uri)
                             val chooser = Intent.createChooser(mapIntent, "Navigate with")
                             context.startActivity(chooser)
                         },

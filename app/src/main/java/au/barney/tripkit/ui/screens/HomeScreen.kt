@@ -39,7 +39,8 @@ fun HomeScreen(
     onOpenMenu: (Int) -> Unit,
     onOpenIngredients: (Int) -> Unit,
     onOpenItinerary: (Int) -> Unit,
-    onOpenMasterInventory: () -> Unit
+    onOpenMasterInventory: () -> Unit,
+    onViewPdf: (String) -> Unit
 ) {
     val lists by viewModel.lists.collectAsState()
     val progress by viewModel.packingProgress.collectAsState()
@@ -252,7 +253,8 @@ fun HomeScreen(
                                                     ingredientGroups = repository.getIngredientGroupsSync(list.id),
                                                     allIngredients = repository.getAllIngredientsForListSync(list.id)
                                                 )
-                                                PdfGenerator.generateFullTripPdf(context, data)
+                                                val file = PdfGenerator.generateFullTripPdf(context, data)
+                                                file?.let { onViewPdf(it.absolutePath) }
                                             }
                                         }) {
                                             Icon(Icons.Default.PictureAsPdf, contentDescription = "Full PDF", tint = MaterialTheme.colorScheme.primary)

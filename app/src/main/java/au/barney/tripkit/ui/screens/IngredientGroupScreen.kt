@@ -29,7 +29,8 @@ fun IngredientGroupScreen(
     viewModel: IngredientGroupViewModel,
     ingredientViewModel: IngredientViewModel,
     onOpenGroup: (Int) -> Unit,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onViewPdf: (String) -> Unit
 ) {
     val groups by viewModel.groups.collectAsState()
     val allIngredients by ingredientViewModel.allIngredients.collectAsState()
@@ -150,12 +151,13 @@ fun IngredientGroupScreen(
                 },
                 actions = {
                     IconButton(onClick = { 
-                        PdfGenerator.generateIngredientsPdf(
+                        val file = PdfGenerator.generateIngredientsPdf(
                             context = context, 
                             listName = currentList?.name ?: "List_$listId", 
                             groups = groups, 
                             allIngredients = allIngredients.groupBy { it.group_id }
                         )
+                        file?.let { onViewPdf(it.absolutePath) }
                     }) {
                         Icon(Icons.Default.PictureAsPdf, contentDescription = "PDF", tint = MaterialTheme.colorScheme.onPrimaryContainer)
                     }
@@ -237,8 +239,7 @@ fun IngredientGroupRow(
         Box {
             Row(
                 modifier = Modifier.padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+                verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = group.group_name, 
                     style = MaterialTheme.typography.titleMedium,

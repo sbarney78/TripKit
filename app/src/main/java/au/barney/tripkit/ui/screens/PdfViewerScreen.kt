@@ -1,93 +1,179 @@
 package au.barney.tripkit.ui.screens
 
-import android.annotation.SuppressLint
-import android.content.Context
-import android.print.PrintAttributes
-import android.print.PrintManager
-import android.webkit.WebSettings
-import android.webkit.WebView
-import android.webkit.WebViewClient
-import androidx.activity.compose.BackHandler
+import android.net.Uri
+import android.os.Build
+import android.os.Bundle
+import android.os.ext.SdkExtensions
+import android.view.View
+import android.widget.FrameLayout
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.RequiresExtension
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.Text
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Save
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.fragment.app.FragmentActivity
+import androidx.pdf.PdfDocument
+import androidx.pdf.viewer.fragment.PdfViewerFragment
+import java.io.File
 
-@SuppressLint("SetJavaScriptEnabled")
-@Composable
-fun PdfViewerScreen(
-    url: String,
-    onBack: () -> Unit
-) {
-    BackHandler { onBack() }
+/**
+ * A custom PdfViewerFragment that hides the toolbox (which contains the annotation button).
+ */
+@RequiresExtension(extension = Build.VERSION_CODES.S, version = 13)
+class NoToolboxPdfViewerFragment : PdfViewerFragment() {
+    override fun onLoadDocumentSuccess(document: PdfDocument) {
+        super.onLoadDocumentSuccess(document)
+        isToolboxVisible = false
+    }
 
-    val context = LocalContext.current
-    var webViewRef by remember { mutableStateOf<WebView?>(null) }
-
-    Box {
-
-        // FULL SCREEN WEBVIEW
-        AndroidView(
-            factory = { ctx ->
-                WebView(ctx).apply {
-
-                    // Enable zoom + gestures
-                    settings.builtInZoomControls = true
-                    settings.displayZoomControls = false
-                    settings.setSupportZoom(true)
-
-                    // Disable shrinking
-                    settings.loadWithOverviewMode = false
-                    settings.useWideViewPort = true
-
-                    // JS + storage
-                    settings.javaScriptEnabled = true
-                    settings.domStorageEnabled = true
-
-                    settings.cacheMode = WebSettings.LOAD_DEFAULT
-
-                    webViewClient = WebViewClient()
-
-                    loadUrl(url)
-
-                    webViewRef = this
-                }
-            },
-            update = { it.loadUrl(url) }
-        )
-
-        // FLOATING PRINT BUTTON
-        FloatingActionButton(
-            onClick = {
-                webViewRef?.let { wv ->
-                    printWebView(context, wv)
-                }
-            },
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(24.dp)
-        ) {
-            Text("Print")
-        }
+    override fun onRequestImmersiveMode(enterImmersive: Boolean) {
+        super.onRequestImmersiveMode(enterImmersive)
+        isToolboxVisible = false
     }
 }
 
-// ANDROID PRINT SYSTEM
-fun printWebView(context: Context, webView: WebView) {
-    val printManager = context.getSystemService(Context.PRINT_SERVICE) as PrintManager
-    val jobName = "TripKit Menu PDF"
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun PdfViewerScreen(
+    filePath: String,
+    onBack: () -> Unit
+) {
+    val context = LocalContext.current
+    val file = File(filePath)
+    val fragmentActivity = context as? FragmentActivity
+    val fragmentManager = fragmentActivity?.supportFragmentManager
+    
+    // We use a unique ID for the container to avoid conflicts
+    val containerId = remember { View.generateViewId() }
 
-    val printAdapter = webView.createPrintDocumentAdapter(jobName)
+    // Launcher for picking a save location
+    val saveLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/pdf")
+    ) { uri ->
+        uri?.let { targetUri ->
+            try {
+                context.contentResolver.openOutputStream(targetUri)?.use { output ->
+                    file.inputStream().use { input ->
+                        input.copyTo(output)
+                    }
+                }
+            } catch (_: Exception) {
+                // Handle or log error
+            }
+        }
+    }
 
-    printManager.print(
-        jobName,
-        printAdapter,
-        PrintAttributes.Builder().build()
-    )
+    // Clean up the fragment when this composable leaves the composition
+    DisposableEffect(containerId) {
+        onDispose {
+            fragmentManager?.findFragmentById(containerId)?.let { fragment ->
+                try {
+                    if (!fragmentManager.isStateSaved) {
+                        fragmentManager.beginTransaction()
+                            .remove(fragment)
+                            .commitAllowingStateLoss()
+                    }
+                } catch (_: Exception) {
+                    // Best effort removal
+                }
+            }
+        }
+    }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text(file.name) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack, 
+                            contentDescription = "Back",
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    }
+                },
+                actions = {
+                    IconButton(onClick = {
+                        saveLauncher.launch(file.name)
+                    }) {
+                        Icon(
+                            Icons.Default.Save, 
+                            contentDescription = "Save PDF",
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    actionIconContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    navigationIconContentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+            )
+        }
+    ) { padding ->
+        if (fragmentActivity != null && fragmentManager != null) {
+            Box(modifier = Modifier.fillMaxSize().padding(padding)) {
+                // PdfViewerFragment requires SDK Extension 13
+                val isSupported = remember {
+                    SdkExtensions.getExtensionVersion(Build.VERSION_CODES.S) >= 13
+                }
+
+                if (isSupported) {
+                    AndroidView(
+                        factory = { ctx ->
+                            FrameLayout(ctx).apply {
+                                id = containerId
+                            }
+                        },
+                        modifier = Modifier.fillMaxSize(),
+                        update = { _ ->
+                            val existingFragment = fragmentManager.findFragmentById(containerId) as? PdfViewerFragment
+                            val uri = Uri.fromFile(file)
+                            
+                            if (existingFragment == null) {
+                                // Use the custom fragment that hides the annotation toolbox
+                                val pdfViewerFragment = NoToolboxPdfViewerFragment()
+                                
+                                fragmentManager.beginTransaction()
+                                    .replace(containerId, pdfViewerFragment)
+                                    .commitAllowingStateLoss()
+                                
+                                fragmentManager.executePendingTransactions()
+                                pdfViewerFragment.documentUri = uri
+                            } else {
+                                if (existingFragment.isAdded && existingFragment.documentUri != uri) {
+                                    existingFragment.documentUri = uri
+                                }
+                            }
+                        }
+                    )
+                } else {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text(
+                            text = "PDF viewing requires a system update (SDK Extension 13).",
+                            modifier = Modifier.padding(16.dp),
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                    }
+                }
+            }
+        } else {
+            Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
+                Text("Error: Activity must be a FragmentActivity")
+            }
+        }
+    }
 }

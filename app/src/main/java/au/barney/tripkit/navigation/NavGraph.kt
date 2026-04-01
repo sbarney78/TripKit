@@ -1,5 +1,6 @@
 package au.barney.tripkit.navigation
 
+import android.net.Uri
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -60,7 +61,8 @@ fun AppNavGraph(modifier: Modifier = Modifier) {
                 onOpenMenu = { listId -> navController.navigate("menu/$listId") },
                 onOpenIngredients = { listId -> navController.navigate("ingredient_groups/$listId") },
                 onOpenItinerary = { listId -> navController.navigate("itinerary/$listId") },
-                onOpenMasterInventory = { navController.navigate("master_inventory") }
+                onOpenMasterInventory = { navController.navigate("master_inventory") },
+                onViewPdf = { path -> navController.navigate("pdf_viewer/${Uri.encode(path)}") }
             )
         }
 
@@ -92,7 +94,8 @@ fun AppNavGraph(modifier: Modifier = Modifier) {
             ItineraryScreen(
                 listId = listId,
                 viewModel = itineraryViewModel,
-                onBack = { navController.popBackStack() }
+                onBack = { navController.popBackStack() },
+                onViewPdf = { path -> navController.navigate("pdf_viewer/${Uri.encode(path)}") }
             )
         }
 
@@ -109,7 +112,8 @@ fun AppNavGraph(modifier: Modifier = Modifier) {
                 onOpenEntryItems = { entryId -> navController.navigate("items/$entryId") },
                 onAddEntry = { navController.navigate("add_entry/$listId") },
                 onEditEntry = { entryId -> navController.navigate("edit_entry/$listId/$entryId") },
-                onBack = { navController.popBackStack() }
+                onBack = { navController.popBackStack() },
+                onViewPdf = { path -> navController.navigate("pdf_viewer/${Uri.encode(path)}") }
             )
         }
 
@@ -195,7 +199,7 @@ fun AppNavGraph(modifier: Modifier = Modifier) {
                 onBack = { navController.popBackStack() },
                 onAddMeal = { navController.navigate("menu_add/$listId") },
                 onEditMeal = { meal -> navController.navigate("menu_edit/${meal.id}") },
-                onCreatePdf = { _ -> }
+                onViewPdf = { path -> navController.navigate("pdf_viewer/${Uri.encode(path)}") }
             )
         }
 
@@ -237,7 +241,8 @@ fun AppNavGraph(modifier: Modifier = Modifier) {
                 viewModel = ingredientGroupViewModel,
                 ingredientViewModel = ingredientViewModel,
                 onOpenGroup = { groupId -> navController.navigate("ingredients/$groupId") },
-                onBack = { navController.popBackStack() }
+                onBack = { navController.popBackStack() },
+                onViewPdf = { path -> navController.navigate("pdf_viewer/${Uri.encode(path)}") }
             )
         }
 
@@ -249,6 +254,17 @@ fun AppNavGraph(modifier: Modifier = Modifier) {
             IngredientScreen(
                 groupId = groupId,
                 viewModel = ingredientViewModel,
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(
+            route = "pdf_viewer/{filePath}",
+            arguments = listOf(navArgument("filePath") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val filePath = backStackEntry.arguments?.getString("filePath") ?: ""
+            PdfViewerScreen(
+                filePath = filePath,
                 onBack = { navController.popBackStack() }
             )
         }
