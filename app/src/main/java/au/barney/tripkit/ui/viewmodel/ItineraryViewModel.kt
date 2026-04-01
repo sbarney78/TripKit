@@ -47,10 +47,23 @@ class ItineraryViewModel(
         }
     }
 
-    fun addItem(listId: Int, day: String, time: String, activity: String, notes: String?, location: String?, price: Double?, departureDay: String?, departureTime: String?) {
+    fun addItem(
+        listId: Int,
+        day: String,
+        time: String,
+        activity: String,
+        notes: String?,
+        location: String?,
+        price: Double?,
+        departureDay: String?,
+        departureTime: String?,
+        category: String?,
+        bookingRef: String?,
+        showOnMap: Boolean
+    ) {
         viewModelScope.launch {
             try {
-                repository.addItineraryItem(listId, day, time, activity, notes, location, price, departureDay, departureTime)
+                repository.addItineraryItem(listId, day, time, activity, notes, location, price, departureDay, departureTime, category, bookingRef, showOnMap)
             } catch (e: Exception) {
                 _error.value = e.message ?: "Unknown error"
             }

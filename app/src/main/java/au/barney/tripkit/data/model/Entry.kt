@@ -1,10 +1,12 @@
 package au.barney.tripkit.data.model
 
+import androidx.room.ColumnInfo
 import androidx.room.Embedded
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import java.util.UUID
 
 @Entity(
     tableName = "entries",
@@ -26,7 +28,11 @@ data class Entry(
     val quantity: Int,
     val is_checked: Int,
     val notes: String?,
-    val list_id: Int
+    val list_id: Int,
+    @ColumnInfo(defaultValue = "")
+    val sync_id: String = UUID.randomUUID().toString(),
+    @ColumnInfo(defaultValue = "0")
+    val last_updated: Long = System.currentTimeMillis()
 )
 
 data class EntryWithCount(

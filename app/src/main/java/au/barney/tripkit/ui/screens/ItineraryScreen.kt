@@ -9,14 +9,13 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Map
-import androidx.compose.material.icons.filled.PictureAsPdf
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -25,6 +24,7 @@ import au.barney.tripkit.ui.viewmodel.ItineraryViewModel
 import au.barney.tripkit.util.PdfGenerator
 import java.text.SimpleDateFormat
 import java.util.*
+import java.util.concurrent.TimeUnit
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -49,8 +49,8 @@ fun ItineraryScreen(
         ItineraryDialog(
             title = "Add Activity",
             onDismiss = { showAddDialog = false },
-            onConfirm = { d, t, a, n, loc, p, dd, dt ->
-                viewModel.addItem(listId, d, t, a, n, loc, p, dd, dt)
+            onConfirm = { d, t, a, n, loc, p, dd, dt, cat, ref, som ->
+                viewModel.addItem(listId, d, t, a, n, loc, p, dd, dt, cat, ref, som)
                 showAddDialog = false
             }
         )
@@ -64,8 +64,20 @@ fun ItineraryScreen(
                 showEditDialog = false
                 itemToEdit = null
             },
-            onConfirm = { d, t, a, n, loc, p, dd, dt ->
-                viewModel.updateItem(itemToEdit!!.copy(day = d, time = t, activity = a, notes = n, location = loc, price = p, departure_day = dd, departure_time = dt))
+            onConfirm = { d, t, a, n, loc, p, dd, dt, cat, ref, som ->
+                viewModel.updateItem(itemToEdit!!.copy(
+                    day = d, 
+                    time = t, 
+                    activity = a, 
+                    notes = n, 
+                    location = loc, 
+                    price = p, 
+                    departure_day = dd, 
+                    departure_time = dt,
+                    category = cat,
+                    booking_ref = ref,
+                    show_on_map = som
+                ))
                 showEditDialog = false
                 itemToEdit = null
             }
@@ -105,14 +117,7 @@ fun ItineraryScreen(
         val sdfDate = SimpleDateFormat("EEEE dd/MM/yyyy", Locale.getDefault())
         val sdfTime = SimpleDateFormat("hh:mm a", Locale.getDefault())
 
-        val items = itinerary.flatMap { item ->
-            val list = mutableListOf<DisplayItineraryItem>()
-            list.add(DisplayItineraryItem(item.day, item.time, item.activity, item.location, item.price, item.notes, item, false))
-            if (!item.departure_day.isNullOrBlank()) {
-                list.add(DisplayItineraryItem(item.departure_day!!, item.departure_time ?: "", "Departure: ${item.activity}", item.location, null, null, item, true))
-            }
-            list
-        }.sortedWith { a, b ->
+        val sortedItinerary = itinerary.sortedWith { a, b ->
             val dateA = try { sdfDate.parse(a.day) } catch (e: Exception) { null }
             val dateB = try { sdfDate.parse(b.day) } catch (e: Exception) { null }
             
@@ -131,7 +136,7 @@ fun ItineraryScreen(
             }
         }
 
-        val grouped = items.groupBy { it.day }
+        val grouped = sortedItinerary.groupBy { it.day }
         
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(padding),
@@ -146,10 +151,10 @@ fun ItineraryScreen(
                     ItineraryCard(
                         item = item,
                         onEdit = { 
-                            itemToEdit = item.original
+                            itemToEdit = item
                             showEditDialog = true
                         },
-                        onDelete = { viewModel.deleteItem(item.original.id) }
+                        onDelete = { viewModel.deleteItem(item.id) }
                     )
                 }
             }
@@ -160,12 +165,30 @@ fun ItineraryScreen(
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ItineraryCard(
-    item: DisplayItineraryItem,
+    item: ItineraryItem,
     onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
     val context = LocalContext.current
     var expanded by remember { mutableStateOf(false) }
+    val sdfFullDate = SimpleDateFormat("EEEE dd/MM/yyyy", Locale.getDefault())
+    val sdfShortDate = SimpleDateFormat("EEE dd MMM", Locale.getDefault())
+    val sdfFullTime = SimpleDateFormat("hh:mm a", Locale.getDefault())
+
+    // Helper to format time as 7 PM instead of 07:00 PM
+    fun formatShortTime(timeStr: String?): String {
+        if (timeStr.isNullOrBlank()) return ""
+        return try {
+            val date = sdfFullTime.parse(timeStr)
+            if (date != null) {
+                val cal = Calendar.getInstance().apply { time = date }
+                val hour = if (cal.get(Calendar.HOUR) == 0) 12 else cal.get(Calendar.HOUR)
+                val minute = cal.get(Calendar.MINUTE)
+                val amPm = if (cal.get(Calendar.AM_PM) == Calendar.AM) "AM" else "PM"
+                if (minute == 0) "$hour $amPm" else "$hour:${String.format("%02d", minute)} $amPm"
+            } else timeStr
+        } catch (e: Exception) { timeStr }
+    }
 
     Card(
         modifier = Modifier
@@ -179,36 +202,137 @@ fun ItineraryCard(
         Box {
             Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(item.time, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.secondary)
-                    Text(item.activity, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                    if (!item.location.isNullOrBlank()) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Map, contentDescription = null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.primary)
-                            Spacer(Modifier.width(4.dp))
-                            Text(
-                                text = item.location!!,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.padding(vertical = 2.dp)
-                            )
+                    // Activity Name with Icon
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        val categoryIcon = when (item.category) {
+                            "Travel" -> Icons.Default.DirectionsCar
+                            "Meal" -> Icons.Default.Restaurant
+                            "Accommodation" -> Icons.Default.Hotel
+                            "Activity" -> Icons.Default.Sailing
+                            "Coffee" -> Icons.Default.LocalCafe
+                            "IceCream" -> Icons.Default.Icecream
+                            "Easter Bunny" -> Icons.Default.Egg
+                            "Santa" -> Icons.Default.Toys
+                            "Shopping" -> Icons.Default.ShoppingBag
+                            "Sightseeing" -> Icons.Default.CameraAlt
+                            else -> Icons.Default.Event
+                        }
+                        Icon(categoryIcon, contentDescription = null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
+                        Spacer(Modifier.width(8.dp))
+                        Text(item.activity, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                    }
+
+                    Spacer(Modifier.height(4.dp))
+
+                    // Arrival / Departure Row
+                    val startTime = formatShortTime(item.time)
+                    val endTime = formatShortTime(item.departure_time)
+                    val hasDepDay = !item.departure_day.isNullOrBlank()
+                    
+                    val timeString = buildString {
+                        append(startTime)
+                        if (hasDepDay || !endTime.isEmpty()) {
+                            append(" → ")
+                            if (hasDepDay) {
+                                try {
+                                    val d = sdfFullDate.parse(item.departure_day!!)
+                                    if (d != null) append(sdfShortDate.format(d)).append(", ")
+                                } catch (e: Exception) { append(item.departure_day).append(", ") }
+                            }
+                            append(endTime)
                         }
                     }
-                    if (item.price != null) {
-                        Text("Cost: AU$${String.format("%.2f", item.price)}", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+                    Text(timeString, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.secondary)
+
+                    // Calculate and Show Duration
+                    val durationText = try {
+                        val startD = sdfFullDate.parse(item.day)
+                        val startT = if (item.time.isNotBlank()) sdfFullTime.parse(item.time) else null
+                        
+                        if (startD != null) {
+                            val startCal = Calendar.getInstance().apply {
+                                time = startD
+                                if (startT != null) {
+                                    val tCal = Calendar.getInstance().apply { time = startT }
+                                    set(Calendar.HOUR_OF_DAY, tCal.get(Calendar.HOUR_OF_DAY))
+                                    set(Calendar.MINUTE, tCal.get(Calendar.MINUTE))
+                                    set(Calendar.SECOND, 0)
+                                    set(Calendar.MILLISECOND, 0)
+                                }
+                            }
+                            
+                            val endDayStr = if (hasDepDay) item.departure_day else item.day
+                            val endD = sdfFullDate.parse(endDayStr!!)
+                            val endT = if (!item.departure_time.isNullOrBlank()) sdfFullTime.parse(item.departure_time!!) else null
+                            
+                            if (endD != null) {
+                                val endCal = Calendar.getInstance().apply {
+                                    time = endD
+                                    if (endT != null) {
+                                        val tCal = Calendar.getInstance().apply { time = endT }
+                                        set(Calendar.HOUR_OF_DAY, tCal.get(Calendar.HOUR_OF_DAY))
+                                        set(Calendar.MINUTE, tCal.get(Calendar.MINUTE))
+                                        set(Calendar.SECOND, 0)
+                                        set(Calendar.MILLISECOND, 0)
+                                    }
+                                }
+                                
+                                val diffInMillis = endCal.timeInMillis - startCal.timeInMillis
+                                if (diffInMillis > 0) {
+                                    val hours = TimeUnit.MILLISECONDS.toHours(diffInMillis)
+                                    val minutes = TimeUnit.MILLISECONDS.toMinutes(diffInMillis) % 60
+                                    val days = hours / 24
+                                    val remainingHours = hours % 24
+                                    
+                                    if (days > 0) "${days}d ${remainingHours}h ${minutes}m"
+                                    else if (hours > 0) "${hours}h ${minutes}m"
+                                    else "${minutes}m"
+                                } else null
+                            } else null
+                        } else null
+                    } catch (e: Exception) { null }
+
+                    if (durationText != null) {
+                        Text("Duration: $durationText", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.tertiary)
                     }
-                    if (!item.notes.isNullOrBlank()) {
-                        Text(item.notes!!, style = MaterialTheme.typography.bodySmall)
+
+                    if (!item.location.isNullOrBlank()) {
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
+                            Icon(Icons.Default.LocationOn, contentDescription = null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.secondary)
+                            Spacer(Modifier.width(4.dp))
+                            Text(item.location!!, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.secondary)
+                        }
+                    }
+
+                    if (item.price != null && item.price > 0) {
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 2.dp)) {
+                            Icon(Icons.Default.AttachMoney, contentDescription = null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.primary)
+                            Spacer(Modifier.width(4.dp))
+                            Text("Price: $${String.format("%.2f", item.price)}", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodyMedium)
+                        }
+                    }
+                    if (!item.booking_ref.isNullOrBlank()) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.ConfirmationNumber, contentDescription = null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.secondary)
+                            Spacer(Modifier.width(4.dp))
+                            Text("Ref: ${item.booking_ref}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.secondary)
+                        }
                     }
                 }
                 
-                if (!item.location.isNullOrBlank()) {
-                    IconButton(onClick = {
-                        val gmmIntentUri = Uri.parse("geo:0,0?q=${Uri.encode(item.location)}")
-                        val mapIntent = Intent(Intent.ACTION_VIEW, gmmIntentUri)
-                        mapIntent.setPackage("com.google.android.apps.maps")
-                        context.startActivity(mapIntent)
-                    }) {
-                        Icon(Icons.Default.Map, contentDescription = "View on Map", tint = MaterialTheme.colorScheme.primary)
+                Column(horizontalAlignment = Alignment.End) {
+                    if (item.show_on_map && !item.location.isNullOrBlank()) {
+                        IconButton(
+                            onClick = {
+                                val gmmIntentUri = Uri.parse("geo:0,0?q=${Uri.encode(item.location)}")
+                                val mapIntent = Intent(Intent.ACTION_VIEW, gmmIntentUri)
+                                mapIntent.setPackage("com.google.android.apps.maps")
+                                context.startActivity(mapIntent)
+                            },
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Icon(Icons.Default.Map, contentDescription = "View on Map", tint = MaterialTheme.colorScheme.primary)
+                        }
                     }
                 }
             }
@@ -219,35 +343,37 @@ fun ItineraryCard(
             ) {
                 DropdownMenuItem(
                     text = { Text("Edit") },
-                    leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) },
                     onClick = {
                         expanded = false
                         onEdit()
-                    }
+                    },
+                    leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) }
                 )
                 DropdownMenuItem(
-                    text = { Text("Delete", color = MaterialTheme.colorScheme.error) },
-                    leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+                    text = { Text("Delete") },
                     onClick = {
                         expanded = false
                         onDelete()
-                    }
+                    },
+                    leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null) }
                 )
+                if (!item.location.isNullOrBlank() && item.show_on_map) {
+                    DropdownMenuItem(
+                        text = { Text("Navigate") },
+                        onClick = {
+                            expanded = false
+                            val gmmIntentUri = Uri.parse("google.navigation:q=${Uri.encode(item.location)}")
+                            val mapIntent = Intent(Intent.ACTION_VIEW, gmmIntentUri)
+                            val chooser = Intent.createChooser(mapIntent, "Navigate with")
+                            context.startActivity(chooser)
+                        },
+                        leadingIcon = { Icon(Icons.Default.Navigation, contentDescription = null) }
+                    )
+                }
             }
         }
     }
 }
-
-data class DisplayItineraryItem(
-    val day: String,
-    val time: String,
-    val activity: String,
-    val location: String?,
-    val price: Double?,
-    val notes: String?,
-    val original: ItineraryItem,
-    val isDeparture: Boolean
-)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -255,7 +381,7 @@ fun ItineraryDialog(
     title: String,
     initialItem: ItineraryItem? = null,
     onDismiss: () -> Unit,
-    onConfirm: (day: String, time: String, activity: String, notes: String?, location: String?, price: Double?, depDay: String?, depTime: String?) -> Unit
+    onConfirm: (day: String, time: String, activity: String, notes: String?, location: String?, price: Double?, depDay: String?, depTime: String?, category: String?, bookingRef: String?, showOnMap: Boolean) -> Unit
 ) {
     var day by remember { mutableStateOf(initialItem?.day ?: "") }
     var time by remember { mutableStateOf(initialItem?.time ?: "") }
@@ -265,6 +391,9 @@ fun ItineraryDialog(
     var price by remember { mutableStateOf(initialItem?.price?.toString() ?: "") }
     var depDay by remember { mutableStateOf(initialItem?.departure_day ?: "") }
     var depTime by remember { mutableStateOf(initialItem?.departure_time ?: "") }
+    var category by remember { mutableStateOf(initialItem?.category ?: "Activity") }
+    var bookingRef by remember { mutableStateOf(initialItem?.booking_ref ?: "") }
+    var showOnMap by remember { mutableStateOf(initialItem?.show_on_map ?: true) }
 
     var activePicker by remember { mutableStateOf<String?>(null) } // "day", "time", "depDay", "depTime"
     val datePickerState = rememberDatePickerState()
@@ -274,6 +403,9 @@ fun ItineraryDialog(
         initialMinute = calendar.get(Calendar.MINUTE),
         is24Hour = false
     )
+
+    val categories = listOf("Activity", "Travel", "Meal", "Accommodation", "Coffee", "IceCream", "Easter Bunny", "Santa", "Shopping", "Sightseeing", "Other")
+    var categoryExpanded by remember { mutableStateOf(false) }
 
     if (activePicker == "day" || activePicker == "depDay") {
         DatePickerDialog(
@@ -313,25 +445,103 @@ fun ItineraryDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
         text = {
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                item { Text("Activity Start", fontWeight = FontWeight.Bold) }
-                item { OutlinedButton(onClick = { activePicker = "day" }, modifier = Modifier.fillMaxWidth()) { Text(if (day.isEmpty()) "Select Date" else day) } }
-                item { OutlinedButton(onClick = { activePicker = "time" }, modifier = Modifier.fillMaxWidth()) { Text(if (time.isEmpty()) "Select Time" else time) } }
-                item { OutlinedTextField(value = activity, onValueChange = { activity = it }, label = { Text("Activity") }, modifier = Modifier.fillMaxWidth()) }
-                item { OutlinedTextField(value = location, onValueChange = { location = it }, label = { Text("Address / Location") }, modifier = Modifier.fillMaxWidth()) }
-                item { OutlinedTextField(value = price, onValueChange = { price = it }, label = { Text("Price (AU$)") }, modifier = Modifier.fillMaxWidth()) }
-                item { OutlinedTextField(value = notes, onValueChange = { notes = it }, label = { Text("Notes") }, modifier = Modifier.fillMaxWidth(), minLines = 3) }
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                item { 
+                    Column {
+                        Text("Arrival / Start", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                        Spacer(Modifier.height(4.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedButton(onClick = { activePicker = "day" }, modifier = Modifier.weight(1f)) { 
+                                Text(if (day.isEmpty()) "Select Date" else day) 
+                            }
+                            OutlinedButton(onClick = { activePicker = "time" }, modifier = Modifier.weight(1f)) { 
+                                Text(if (time.isEmpty()) "Select Time" else time) 
+                            }
+                        }
+                    }
+                }
                 
-                item { HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp)) }
-                item { Text("Departure (Optional)", fontWeight = FontWeight.Bold) }
-                item { OutlinedButton(onClick = { activePicker = "depDay" }, modifier = Modifier.fillMaxWidth()) { Text(if (depDay.isEmpty()) "Departure Date" else depDay) } }
-                item { OutlinedButton(onClick = { activePicker = "depTime" }, modifier = Modifier.fillMaxWidth()) { Text(if (depTime.isEmpty()) "Departure Time" else depTime) } }
+                item { 
+                    Column {
+                        Text("Departure / Finish", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                        Spacer(Modifier.height(4.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedButton(onClick = { activePicker = "depDay" }, modifier = Modifier.weight(1f)) { 
+                                Text(if (depDay.isEmpty()) "Select Date" else depDay) 
+                            }
+                            OutlinedButton(onClick = { activePicker = "depTime" }, modifier = Modifier.weight(1f)) { 
+                                Text(if (depTime.isEmpty()) "Select Time" else depTime) 
+                            }
+                        }
+                    }
+                }
+
+                item { OutlinedTextField(value = activity, onValueChange = { activity = it }, label = { Text("Activity") }, modifier = Modifier.fillMaxWidth()) }
+                
+                item {
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        OutlinedTextField(
+                            value = location,
+                            onValueChange = { location = it },
+                            label = { Text("Address / Location") },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text("Show on Map", style = MaterialTheme.typography.bodyMedium)
+                            Switch(
+                                checked = showOnMap,
+                                onCheckedChange = { showOnMap = it },
+                                modifier = Modifier.scale(0.8f)
+                            )
+                        }
+                    }
+                }
+                
+                item { OutlinedTextField(value = price, onValueChange = { price = it }, label = { Text("Price (AU$)") }, modifier = Modifier.fillMaxWidth()) }
+                
+                item {
+                    ExposedDropdownMenuBox(
+                        expanded = categoryExpanded,
+                        onExpandedChange = { categoryExpanded = !categoryExpanded }
+                    ) {
+                        OutlinedTextField(
+                            value = category,
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text("Category") },
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = categoryExpanded) },
+                            modifier = Modifier.menuAnchor().fillMaxWidth()
+                        )
+                        ExposedDropdownMenu(
+                            expanded = categoryExpanded,
+                            onDismissRequest = { categoryExpanded = false }
+                        ) {
+                            categories.forEach { cat ->
+                                DropdownMenuItem(
+                                    text = { Text(cat) },
+                                    onClick = {
+                                        category = cat
+                                        categoryExpanded = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+
+                item { OutlinedTextField(value = bookingRef, onValueChange = { bookingRef = it }, label = { Text("Booking Ref") }, modifier = Modifier.fillMaxWidth()) }
+                
+                item { OutlinedTextField(value = notes, onValueChange = { notes = it }, label = { Text("Notes") }, modifier = Modifier.fillMaxWidth(), minLines = 3) }
             }
         },
         confirmButton = {
             Button(onClick = {
                 if (activity.isNotBlank() && day.isNotBlank()) {
-                    onConfirm(day, time, activity, notes, location, price.toDoubleOrNull(), depDay.ifBlank { null }, depTime.ifBlank { null })
+                    onConfirm(day, time, activity, notes.ifBlank { null }, location.ifBlank { null }, price.toDoubleOrNull(), depDay.ifBlank { null }, depTime.ifBlank { null }, category, bookingRef.ifBlank { null }, showOnMap)
                 }
             }) { Text("Save") }
         },

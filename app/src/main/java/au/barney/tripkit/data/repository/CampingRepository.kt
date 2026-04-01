@@ -74,7 +74,7 @@ class TripKitRepository(private val dao: TripKitDao) {
     }
 
     suspend fun updateList(list: ListItem) {
-        dao.updateList(list)
+        dao.updateList(list.copy(last_updated = System.currentTimeMillis()))
     }
 
     suspend fun deleteList(listId: Int) = dao.deleteList(listId)
@@ -85,39 +85,72 @@ class TripKitRepository(private val dao: TripKitDao) {
             original.copy(
                 id = 0,
                 name = newName,
-                created_at = getCurrentTimestamp()
+                created_at = getCurrentTimestamp(),
+                sync_id = UUID.randomUUID().toString(),
+                last_updated = System.currentTimeMillis()
             )
         ).toInt()
 
         val oldEntries = dao.getEntriesSync(listId)
         oldEntries.forEach { entry ->
             val newEntryId = dao.insertEntry(
-                entry.copy(entry_id = 0, list_id = newListId, is_checked = 0)
+                entry.copy(
+                    entry_id = 0, 
+                    list_id = newListId, 
+                    is_checked = 0,
+                    sync_id = UUID.randomUUID().toString(),
+                    last_updated = System.currentTimeMillis()
+                )
             ).toInt()
 
             if (entry.entry_type == "container") {
                 val oldItems = dao.getItemsSync(entry.entry_id)
                 oldItems.forEach { item ->
-                    dao.insertItem(item.copy(item_id = 0, entry_id = newEntryId, is_checked = 0))
+                    dao.insertItem(
+                        item.copy(
+                            item_id = 0, 
+                            entry_id = newEntryId, 
+                            is_checked = 0,
+                            sync_id = UUID.randomUUID().toString(),
+                            last_updated = System.currentTimeMillis()
+                        )
+                    )
                 }
             }
         }
 
         val oldMenu = dao.getMenuSync(listId)
         oldMenu.forEach { meal ->
-            dao.insertMenuItem(meal.copy(id = 0, list_id = newListId))
+            dao.insertMenuItem(
+                meal.copy(
+                    id = 0, 
+                    list_id = newListId,
+                    sync_id = UUID.randomUUID().toString(),
+                    last_updated = System.currentTimeMillis()
+                )
+            )
         }
 
         val oldGroups = dao.getIngredientGroupsSync(listId)
         oldGroups.forEach { group ->
             val newGroupId = dao.insertIngredientGroup(
-                group.copy(id = 0, list_id = newListId)
+                group.copy(
+                    id = 0, 
+                    list_id = newListId,
+                    sync_id = UUID.randomUUID().toString()
+                )
             ).toInt()
 
             val oldIngredients = dao.getIngredientsSync(group.id)
             oldIngredients.forEach { ingredient ->
                 dao.insertIngredient(
-                    ingredient.copy(id = 0, group_id = newGroupId, is_checked = 0)
+                    ingredient.copy(
+                        id = 0, 
+                        group_id = newGroupId, 
+                        is_checked = 0,
+                        sync_id = UUID.randomUUID().toString(),
+                        last_updated = System.currentTimeMillis()
+                    )
                 )
             }
         }
@@ -207,7 +240,8 @@ class TripKitRepository(private val dao: TripKitDao) {
                     entry_name = name,
                     quantity = quantity,
                     notes = notes,
-                    entry_type = type
+                    entry_type = type,
+                    last_updated = System.currentTimeMillis()
                 )
             )
         }
@@ -297,7 +331,8 @@ class TripKitRepository(private val dao: TripKitDao) {
                 existing.copy(
                     item_name = name,
                     quantity = quantity,
-                    notes = notes
+                    notes = notes,
+                    last_updated = System.currentTimeMillis()
                 )
             )
         }
@@ -339,7 +374,8 @@ class TripKitRepository(private val dao: TripKitDao) {
                 existing.copy(
                     day = day,
                     meal_type = mealType,
-                    description = description
+                    description = description,
+                    last_updated = System.currentTimeMillis()
                 )
             )
         }
@@ -410,7 +446,8 @@ class TripKitRepository(private val dao: TripKitDao) {
                     ingredient_name = ingredientName,
                     quantity = quantity,
                     notes = notes,
-                    is_checked = isChecked
+                    is_checked = isChecked,
+                    last_updated = System.currentTimeMillis()
                 )
             )
         }
@@ -454,12 +491,40 @@ class TripKitRepository(private val dao: TripKitDao) {
 
     suspend fun getItineraryItem(id: Int) = dao.getItineraryItem(id)
 
-    suspend fun addItineraryItem(listId: Int, day: String, time: String, activity: String, notes: String?, location: String?, price: Double?, departureDay: String?, departureTime: String?) {
-        dao.insertItineraryItem(ItineraryItem(list_id = listId, day = day, time = time, activity = activity, notes = notes, location = location, price = price, departure_day = departureDay, departure_time = departureTime))
+    suspend fun addItineraryItem(
+        listId: Int,
+        day: String,
+        time: String,
+        activity: String,
+        notes: String?,
+        location: String?,
+        price: Double?,
+        departureDay: String?,
+        departureTime: String?,
+        category: String? = null,
+        bookingRef: String? = null,
+        showOnMap: Boolean = true
+    ) {
+        dao.insertItineraryItem(
+            ItineraryItem(
+                list_id = listId, 
+                day = day, 
+                time = time, 
+                activity = activity, 
+                notes = notes, 
+                location = location, 
+                price = price, 
+                departure_day = departureDay, 
+                departure_time = departureTime,
+                category = category,
+                booking_ref = bookingRef,
+                show_on_map = showOnMap
+            )
+        )
     }
 
     suspend fun updateItineraryItem(item: ItineraryItem) {
-        dao.updateItineraryItem(item)
+        dao.updateItineraryItem(item.copy(last_updated = System.currentTimeMillis()))
     }
 
     suspend fun deleteItineraryItem(itemId: Int) = dao.deleteItineraryItem(itemId)
@@ -485,7 +550,9 @@ class TripKitRepository(private val dao: TripKitDao) {
         }
 
         // 4. Insert Menu
-        data.menu.forEach { dao.insertMenuItem(it.copy(id = 0, list_id = newListId)) }
+        data.menu.forEach { meal ->
+            dao.insertMenuItem(meal.copy(id = 0, list_id = newListId))
+        }
 
         // 5. Insert Groups & Ingredients
         data.ingredientGroups.forEach { group ->
@@ -494,6 +561,96 @@ class TripKitRepository(private val dao: TripKitDao) {
 
             data.allIngredients.filter { it.group_id == oldGroupId }.forEach { ing ->
                 dao.insertIngredient(ing.copy(id = 0, group_id = newGroupId))
+            }
+        }
+    }
+
+    /**
+     * Checks if a list already exists by Sync ID.
+     */
+    suspend fun getListBySyncId(syncId: String) = dao.getListBySyncId(syncId)
+
+    /**
+     * Performs a smart merge of trip data. 
+     * Keeps local version if it is newer than the imported version.
+     */
+    suspend fun mergeTripData(importedData: FullTripData) {
+        val existingList = dao.getListBySyncId(importedData.list.sync_id) ?: return
+        val listId = existingList.id
+
+        // 1. Update List properties if imported is newer
+        if (importedData.list.last_updated > existingList.last_updated) {
+            dao.updateList(importedData.list.copy(id = listId))
+        }
+
+        // 2. Merge Itinerary
+        importedData.itinerary.forEach { imp ->
+            val local = dao.getItineraryItemBySyncId(imp.sync_id, listId)
+            if (local == null) {
+                dao.insertItineraryItem(imp.copy(id = 0, list_id = listId))
+            } else if (imp.last_updated > local.last_updated) {
+                dao.updateItineraryItem(imp.copy(id = local.id, list_id = listId))
+            }
+        }
+
+        // 3. Merge Entries & Nested Items
+        importedData.entries.forEach { impEntry ->
+            val localEntry = dao.getEntryBySyncId(impEntry.sync_id, listId)
+            val entryIdToUse: Int
+            
+            if (localEntry == null) {
+                entryIdToUse = dao.insertEntry(impEntry.copy(entry_id = 0, list_id = listId)).toInt()
+            } else {
+                entryIdToUse = localEntry.entry_id
+                if (impEntry.last_updated > localEntry.last_updated) {
+                    // Important: preserves check status of local user
+                    dao.updateEntry(impEntry.copy(entry_id = entryIdToUse, list_id = listId, is_checked = localEntry.is_checked))
+                }
+            }
+
+            // Merge Items inside this entry
+            importedData.allItems.filter { it.entry_id == impEntry.entry_id }.forEach { impItem ->
+                val localItem = dao.getItemBySyncId(impItem.sync_id, entryIdToUse)
+                if (localItem == null) {
+                    dao.insertItem(impItem.copy(item_id = 0, entry_id = entryIdToUse))
+                } else if (impItem.last_updated > localItem.last_updated) {
+                    dao.updateItem(impItem.copy(item_id = localItem.item_id, entry_id = entryIdToUse, is_checked = localItem.is_checked))
+                }
+            }
+        }
+
+        // 4. Merge Menu
+        importedData.menu.forEach { impMeal ->
+            val localMeal = dao.getMenuItemBySyncId(impMeal.sync_id, listId)
+            if (localMeal == null) {
+                dao.insertMenuItem(impMeal.copy(id = 0, list_id = listId))
+            } else if (impMeal.last_updated > localMeal.last_updated) {
+                dao.updateMenuItem(impMeal.copy(id = localMeal.id, list_id = listId))
+            }
+        }
+
+        // 5. Merge Ingredients
+        importedData.ingredientGroups.forEach { impGroup ->
+            val localGroup = dao.getIngredientGroupBySyncId(impGroup.sync_id, listId)
+            val groupIdToUse: Int
+            
+            if (localGroup == null) {
+                groupIdToUse = dao.insertIngredientGroup(impGroup.copy(id = 0, list_id = listId)).toInt()
+            } else {
+                groupIdToUse = localGroup.id
+                // Update group name if changed
+                if (impGroup.group_name != localGroup.group_name) {
+                    dao.updateIngredientGroup(impGroup.copy(id = groupIdToUse, list_id = listId))
+                }
+            }
+
+            importedData.allIngredients.filter { it.group_id == impGroup.id }.forEach { impIng ->
+                val localIng = dao.getIngredientBySyncId(impIng.sync_id, groupIdToUse)
+                if (localIng == null) {
+                    dao.insertIngredient(impIng.copy(id = 0, group_id = groupIdToUse))
+                } else if (impIng.last_updated > localIng.last_updated) {
+                    dao.updateIngredient(impIng.copy(id = localIng.id, group_id = groupIdToUse, is_checked = localIng.is_checked))
+                }
             }
         }
     }

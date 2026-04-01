@@ -1,9 +1,11 @@
 package au.barney.tripkit.data.model
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import java.util.UUID
 
 @Entity(
     tableName = "items",
@@ -23,5 +25,9 @@ data class Item(
     val item_name: String,
     val quantity: Int,
     val notes: String? = null,
-    val is_checked: Int = 0
+    val is_checked: Int = 0,
+    @ColumnInfo(defaultValue = "")
+    val sync_id: String = UUID.randomUUID().toString(),
+    @ColumnInfo(defaultValue = "0")
+    val last_updated: Long = System.currentTimeMillis()
 )

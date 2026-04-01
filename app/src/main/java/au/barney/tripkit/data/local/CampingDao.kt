@@ -14,6 +14,9 @@ interface TripKitDao {
     @Query("SELECT * FROM lists WHERE id = :listId")
     suspend fun getList(listId: Int): ListItem?
 
+    @Query("SELECT * FROM lists WHERE sync_id = :syncId")
+    suspend fun getListBySyncId(syncId: String): ListItem?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertList(list: ListItem): Long
 
@@ -38,6 +41,9 @@ interface TripKitDao {
 
     @Query("SELECT * FROM entries WHERE entry_id = :entryId")
     suspend fun getEntry(entryId: Int): Entry?
+
+    @Query("SELECT * FROM entries WHERE sync_id = :syncId AND list_id = :listId")
+    suspend fun getEntryBySyncId(syncId: String, listId: Int): Entry?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertEntry(entry: Entry): Long
@@ -72,6 +78,9 @@ interface TripKitDao {
 
     @Query("SELECT * FROM items WHERE item_id = :itemId")
     suspend fun getItem(itemId: Int): Item?
+
+    @Query("SELECT * FROM items WHERE sync_id = :syncId AND entry_id = :entryId")
+    suspend fun getItemBySyncId(syncId: String, entryId: Int): Item?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertItem(item: Item): Long
@@ -116,6 +125,9 @@ interface TripKitDao {
     @Query("SELECT * FROM menu_items WHERE id = :menuId")
     suspend fun getMenuItemSync(menuId: Int): MenuItem?
 
+    @Query("SELECT * FROM menu_items WHERE sync_id = :syncId AND list_id = :listId")
+    suspend fun getMenuItemBySyncId(syncId: String, listId: Int): MenuItem?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertMenuItem(menuItem: MenuItem)
 
@@ -134,6 +146,9 @@ interface TripKitDao {
 
     @Query("SELECT * FROM ingredient_groups WHERE id = :groupId")
     suspend fun getIngredientGroup(groupId: Int): IngredientGroup?
+
+    @Query("SELECT * FROM ingredient_groups WHERE sync_id = :syncId AND list_id = :listId")
+    suspend fun getIngredientGroupBySyncId(syncId: String, listId: Int): IngredientGroup?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertIngredientGroup(group: IngredientGroup): Long
@@ -159,6 +174,9 @@ interface TripKitDao {
 
     @Query("SELECT * FROM ingredients WHERE id = :ingredientId")
     suspend fun getIngredient(ingredientId: Int): Ingredient?
+
+    @Query("SELECT * FROM ingredients WHERE sync_id = :syncId AND group_id = :groupId")
+    suspend fun getIngredientBySyncId(syncId: String, groupId: Int): Ingredient?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertIngredient(ingredient: Ingredient)
@@ -228,6 +246,9 @@ interface TripKitDao {
 
     @Query("SELECT * FROM itinerary_items WHERE id = :id")
     suspend fun getItineraryItem(id: Int): ItineraryItem?
+
+    @Query("SELECT * FROM itinerary_items WHERE sync_id = :syncId AND list_id = :listId")
+    suspend fun getItineraryItemBySyncId(syncId: String, listId: Int): ItineraryItem?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertItineraryItem(item: ItineraryItem)

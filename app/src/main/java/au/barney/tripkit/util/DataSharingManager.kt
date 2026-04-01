@@ -66,29 +66,56 @@ object DataSharingManager {
     }
 
     /**
-     * Imports a trip list from a JSON file. 
-     * This method does NOT affect the Master Inventory.
+     * Reads a trip list from a JSON file URI.
      */
-    suspend fun importTripList(context: Context, repository: TripKitRepository, uri: Uri) {
-        withContext(Dispatchers.IO) {
+    suspend fun readTripFile(context: Context, uri: Uri): FullTripData? {
+        return withContext(Dispatchers.IO) {
             try {
                 val json = context.contentResolver.openInputStream(uri)?.use { 
                     it.bufferedReader().readText() 
-                } ?: return@withContext
+                } ?: return@withContext null
 
-                val data = gson.fromJson(json, FullTripData::class.java) ?: return@withContext
+                gson.fromJson(json, FullTripData::class.java)
+            } catch (e: Exception) {
+                e.printStackTrace()
+                null
+            }
+        }
+    }
 
-                // Insert into DB using repository's silent import method
+    /**
+     * Imports a trip list as a brand new list.
+     */
+    suspend fun importAsNew(context: Context, repository: TripKitRepository, data: FullTripData) {
+        withContext(Dispatchers.IO) {
+            try {
                 repository.importFullTripData(data)
-
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(context, "Trip '${data.list.name}' imported successfully!", Toast.LENGTH_LONG).show()
+                    Toast.makeText(context, "Trip '${data.list.name}' imported as a new list!", Toast.LENGTH_LONG).show()
                 }
-
             } catch (e: Exception) {
                 e.printStackTrace()
                 withContext(Dispatchers.Main) {
                     Toast.makeText(context, "Import failed: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+    }
+
+    /**
+     * Merges imported data into an existing list.
+     */
+    suspend fun mergeIntoExisting(context: Context, repository: TripKitRepository, data: FullTripData) {
+        withContext(Dispatchers.IO) {
+            try {
+                repository.mergeTripData(data)
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "Trip '${data.list.name}' synced successfully!", Toast.LENGTH_LONG).show()
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "Sync failed: ${e.message}", Toast.LENGTH_LONG).show()
                 }
             }
         }

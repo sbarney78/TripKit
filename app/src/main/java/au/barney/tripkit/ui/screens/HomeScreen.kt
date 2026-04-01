@@ -16,17 +16,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import au.barney.tripkit.data.model.FullTripData
 import au.barney.tripkit.data.model.ListItem
-import au.barney.tripkit.ui.theme.TripKitTheme
 import au.barney.tripkit.ui.viewmodel.*
 import au.barney.tripkit.util.BackupManager
 import au.barney.tripkit.util.DataSharingManager
 import au.barney.tripkit.util.PdfGenerator
 import kotlinx.coroutines.launch
 
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun HomeScreen(
     viewModel: ListViewModel,
@@ -47,80 +46,6 @@ fun HomeScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
-    val restoreLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocument(),
-        onResult = { uri ->
-            uri?.let { BackupManager.restoreDatabase(context, it) }
-        }
-    )
-
-    val importLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocument(),
-        onResult = { uri ->
-            uri?.let {
-                scope.launch {
-                    DataSharingManager.importTripList(context, entryViewModel.repository, it)
-                }
-            }
-        }
-    )
-
-    HomeScreenContent(
-        lists = lists,
-        progress = progress,
-        onOpenInventory = onOpenInventory,
-        onOpenMenu = onOpenMenu,
-        onOpenIngredients = onOpenIngredients,
-        onOpenItinerary = onOpenItinerary,
-        onOpenMasterInventory = onOpenMasterInventory,
-        onImportTrip = { importLauncher.launch(arrayOf("application/json")) },
-        onFullBackup = { BackupManager.backupDatabase(context) },
-        onFullRestore = { restoreLauncher.launch(arrayOf("application/octet-stream", "application/x-sqlite3")) },
-        onAddList = { name, inv, menu, ing, itin -> viewModel.addList(name, inv, menu, ing, itin) },
-        onUpdateList = { viewModel.updateList(it) },
-        onDeleteList = { viewModel.deleteList(it.id) },
-        onDuplicateList = { id, name -> viewModel.duplicateList(id, name) },
-        onExportTrip = { id -> 
-            scope.launch { DataSharingManager.exportTripList(context, entryViewModel.repository, id) }
-        },
-        onFullPdf = { list ->
-            scope.launch {
-                val repository = entryViewModel.repository
-                val data = FullTripData(
-                    list = list,
-                    itinerary = repository.getItinerarySync(list.id),
-                    entries = repository.getEntriesSync(list.id),
-                    allItems = repository.getAllItemsForListSync(list.id),
-                    menu = repository.getMenuSync(list.id),
-                    ingredientGroups = repository.getIngredientGroupsSync(list.id),
-                    allIngredients = repository.getAllIngredientsForListSync(list.id)
-                )
-                PdfGenerator.generateFullTripPdf(context, data)
-            }
-        }
-    )
-}
-
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
-@Composable
-fun HomeScreenContent(
-    lists: List<ListItem>,
-    progress: Map<Int, Pair<Int, Int>>,
-    onOpenInventory: (Int) -> Unit,
-    onOpenMenu: (Int) -> Unit,
-    onOpenIngredients: (Int) -> Unit,
-    onOpenItinerary: (Int) -> Unit,
-    onOpenMasterInventory: () -> Unit,
-    onImportTrip: () -> Unit,
-    onFullBackup: () -> Unit,
-    onFullRestore: () -> Unit,
-    onAddList: (String, Boolean, Boolean, Boolean, Boolean) -> Unit,
-    onUpdateList: (ListItem) -> Unit,
-    onDeleteList: (ListItem) -> Unit,
-    onDuplicateList: (Int, String) -> Unit,
-    onExportTrip: (Int) -> Unit,
-    onFullPdf: (ListItem) -> Unit
-) {
     var showAddDialog by remember { mutableStateOf(false) }
     var newListName by remember { mutableStateOf("") }
     var addInventory by remember { mutableStateOf(true) }
@@ -141,6 +66,68 @@ fun HomeScreenContent(
 
     var contextMenuVisible by remember { mutableStateOf<Int?>(null) }
 
+    // Sync / Import State
+    var dataToImport by remember { mutableStateOf<FullTripData?>(null) }
+    var existingSyncList by remember { mutableStateOf<ListItem?>(null) }
+
+    val restoreLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument(),
+        onResult = { uri ->
+            uri?.let { BackupManager.restoreDatabase(context, it) }
+        }
+    )
+
+    val importLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument(),
+        onResult = { uri ->
+            uri?.let {
+                scope.launch {
+                    val data = DataSharingManager.readTripFile(context, it)
+                    if (data != null) {
+                        dataToImport = data
+                        existingSyncList = entryViewModel.repository.getListBySyncId(data.list.sync_id)
+                    }
+                }
+            }
+        }
+    )
+
+    // Handle Import/Sync Dialog
+    if (dataToImport != null) {
+        if (existingSyncList != null) {
+            AlertDialog(
+                onDismissRequest = { dataToImport = null },
+                title = { Text("Trip Exists") },
+                text = { Text("A list named '${existingSyncList!!.name}' already exists. Would you like to sync updates to it or create a brand new copy?") },
+                confirmButton = {
+                    Button(onClick = {
+                        scope.launch { 
+                            DataSharingManager.mergeIntoExisting(context, entryViewModel.repository, dataToImport!!)
+                            viewModel.loadLists() // Refresh
+                        }
+                        dataToImport = null
+                    }) { Text("Sync Updates") }
+                },
+                dismissButton = {
+                    TextButton(onClick = {
+                        scope.launch { 
+                            DataSharingManager.importAsNew(context, entryViewModel.repository, dataToImport!!)
+                            viewModel.loadLists() // Refresh
+                        }
+                        dataToImport = null
+                    }) { Text("Create New Copy") }
+                }
+            )
+        } else {
+            // No conflict, just import immediately
+            LaunchedEffect(dataToImport) {
+                DataSharingManager.importAsNew(context, entryViewModel.repository, dataToImport!!)
+                viewModel.loadLists() // Refresh
+                dataToImport = null
+            }
+        }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -152,16 +139,16 @@ fun HomeScreenContent(
                         state = rememberTooltipState()
                     ) {
                         IconButton(onClick = onOpenMasterInventory) {
-                            Icon(Icons.Default.Inventory, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                            Icon(Icons.Default.Inventory, contentDescription = "Master Inventory", tint = MaterialTheme.colorScheme.onPrimaryContainer)
                         }
                     }
                     TooltipBox(
                         positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
-                        tooltip = { PlainTooltip { Text("Import Trip List") } },
+                        tooltip = { PlainTooltip { Text("Import Trip") } },
                         state = rememberTooltipState()
                     ) {
-                        IconButton(onClick = onImportTrip) {
-                            Icon(Icons.Default.Input, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                        IconButton(onClick = { importLauncher.launch(arrayOf("application/json")) }) {
+                            Icon(Icons.Default.Input, contentDescription = "Import Trip", tint = MaterialTheme.colorScheme.onPrimaryContainer)
                         }
                     }
                     TooltipBox(
@@ -169,8 +156,8 @@ fun HomeScreenContent(
                         tooltip = { PlainTooltip { Text("Full Backup") } },
                         state = rememberTooltipState()
                     ) {
-                        IconButton(onClick = onFullBackup) {
-                            Icon(Icons.Default.Backup, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                        IconButton(onClick = { BackupManager.backupDatabase(context) }) {
+                            Icon(Icons.Default.Backup, contentDescription = "Full Backup", tint = MaterialTheme.colorScheme.onPrimaryContainer)
                         }
                     }
                     TooltipBox(
@@ -178,8 +165,8 @@ fun HomeScreenContent(
                         tooltip = { PlainTooltip { Text("Full Restore") } },
                         state = rememberTooltipState()
                     ) {
-                        IconButton(onClick = onFullRestore) {
-                            Icon(Icons.Default.SettingsBackupRestore, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                        IconButton(onClick = { restoreLauncher.launch(arrayOf("application/octet-stream", "application/x-sqlite3")) }) {
+                            Icon(Icons.Default.SettingsBackupRestore, contentDescription = "Full Restore", tint = MaterialTheme.colorScheme.onPrimaryContainer)
                         }
                     }
                 },
@@ -236,27 +223,45 @@ fun HomeScreenContent(
                                 Row {
                                     TooltipBox(
                                         positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
-                                        tooltip = { PlainTooltip { Text("Share Trip List") } },
+                                        tooltip = { PlainTooltip { Text("Export/Share") } },
                                         state = rememberTooltipState()
                                     ) {
-                                        IconButton(onClick = { onExportTrip(list.id) }) {
-                                            Icon(Icons.Default.Share, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                        IconButton(onClick = {
+                                            scope.launch {
+                                                DataSharingManager.exportTripList(context, entryViewModel.repository, list.id)
+                                            }
+                                        }) {
+                                            Icon(Icons.Default.Share, contentDescription = "Export/Share", tint = MaterialTheme.colorScheme.primary)
                                         }
                                     }
 
                                     TooltipBox(
                                         positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
-                                        tooltip = { PlainTooltip { Text("Full Trip PDF") } },
+                                        tooltip = { PlainTooltip { Text("Full PDF") } },
                                         state = rememberTooltipState()
                                     ) {
-                                        IconButton(onClick = { onFullPdf(list) }) {
-                                            Icon(Icons.Default.PictureAsPdf, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                        IconButton(onClick = {
+                                            scope.launch {
+                                                val repository = entryViewModel.repository
+                                                val data = FullTripData(
+                                                    list = list,
+                                                    itinerary = repository.getItinerarySync(list.id),
+                                                    entries = repository.getEntriesSync(list.id),
+                                                    allItems = repository.getAllItemsForListSync(list.id),
+                                                    menu = repository.getMenuSync(list.id),
+                                                    ingredientGroups = repository.getIngredientGroupsSync(list.id),
+                                                    allIngredients = repository.getAllIngredientsForListSync(list.id)
+                                                )
+                                                PdfGenerator.generateFullTripPdf(context, data)
+                                            }
+                                        }) {
+                                            Icon(Icons.Default.PictureAsPdf, contentDescription = "Full PDF", tint = MaterialTheme.colorScheme.primary)
                                         }
                                     }
 
                                     TooltipBox(
                                         positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
-                                        tooltip = { PlainTooltip { Text("Duplicate List") } },
+                                        tooltip = { PlainTooltip { Text("Duplicate") } },
                                         state = rememberTooltipState()
                                     ) {
                                         IconButton(onClick = {
@@ -264,7 +269,7 @@ fun HomeScreenContent(
                                             duplicateListName = "${list.name} (Copy)"
                                             showDuplicateDialog = true
                                         }) {
-                                            Icon(Icons.Default.ContentCopy, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                            Icon(Icons.Default.ContentCopy, contentDescription = "Duplicate", tint = MaterialTheme.colorScheme.primary)
                                         }
                                     }
                                 }
@@ -417,7 +422,7 @@ fun HomeScreenContent(
             confirmButton = {
                 Button(onClick = {
                     if (newListName.isNotBlank()) {
-                        onAddList(newListName, addInventory, addMenu, addIngredients, addItinerary)
+                        viewModel.addList(newListName, addInventory, addMenu, addIngredients, addItinerary)
                     }
                     newListName = ""
                     addInventory = true; addMenu = true; addIngredients = true; addItinerary = true
@@ -485,7 +490,7 @@ fun HomeScreenContent(
                             }
                             Button(onClick = {
                                 if (editListName.isNotBlank()) {
-                                    onUpdateList(currentEditList.copy(
+                                    viewModel.updateList(currentEditList.copy(
                                         name = editListName,
                                         show_inventory = editedInventory,
                                         show_menu = editedMenu,
@@ -527,7 +532,7 @@ fun HomeScreenContent(
                 Button(onClick = {
                     val original = listToDuplicate
                     if (original != null && duplicateListName.isNotBlank()) {
-                        onDuplicateList(original.id, duplicateListName)
+                        viewModel.duplicateList(original.id, duplicateListName)
                     }
                     showDuplicateDialog = false
                 }) {
@@ -550,7 +555,7 @@ fun HomeScreenContent(
             confirmButton = {
                 Button(
                     onClick = {
-                        listToDelete?.let { onDeleteList(it) }
+                        listToDelete?.let { viewModel.deleteList(it.id) }
                         showDeleteDialog = false
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
@@ -561,34 +566,6 @@ fun HomeScreenContent(
                     Text("Cancel")
                 }
             }
-        )
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun HomeScreenPreview() {
-    TripKitTheme {
-        HomeScreenContent(
-            lists = listOf(
-                ListItem(id = 1, name = "Summer Camping", created_at = "2024-01-01", show_inventory = true, show_menu = true, show_ingredients = true, show_itinerary = true),
-                ListItem(id = 2, name = "Beach Trip", created_at = "2024-02-01", show_inventory = true, show_menu = false, show_ingredients = false, show_itinerary = true)
-            ),
-            progress = mapOf(1 to Pair(5, 10), 2 to Pair(0, 0)),
-            onOpenInventory = {},
-            onOpenMenu = {},
-            onOpenIngredients = {},
-            onOpenItinerary = {},
-            onOpenMasterInventory = {},
-            onImportTrip = {},
-            onFullBackup = {},
-            onFullRestore = {},
-            onAddList = { _, _, _, _, _ -> },
-            onUpdateList = {},
-            onDeleteList = {},
-            onDuplicateList = { _, _ -> },
-            onExportTrip = {},
-            onFullPdf = {}
         )
     }
 }

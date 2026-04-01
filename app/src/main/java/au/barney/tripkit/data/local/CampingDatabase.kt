@@ -19,7 +19,12 @@ import au.barney.tripkit.data.model.*
         MasterSubItem::class,
         ItineraryItem::class
     ],
-    version = 5,
+    version = 8,
+    autoMigrations = [
+        AutoMigration(from = 5, to = 6),
+        AutoMigration(from = 6, to = 7),
+        AutoMigration(from = 7, to = 8)
+    ],
     exportSchema = true
 )
 abstract class TripKitDatabase : RoomDatabase() {
@@ -37,7 +42,6 @@ abstract class TripKitDatabase : RoomDatabase() {
                     TripKitDatabase::class.java,
                     "tripkit_database"
                 )
-                    // .fallbackToDestructiveMigration() // REMOVED to prevent data loss
                     .build()
                 INSTANCE = instance
                 instance
