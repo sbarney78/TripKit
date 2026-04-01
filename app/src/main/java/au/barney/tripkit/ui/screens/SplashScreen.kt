@@ -6,6 +6,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -16,18 +17,32 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import au.barney.tripkit.R
+import au.barney.tripkit.ui.theme.TripKitTheme
 import kotlinx.coroutines.delay
 
 @Composable
 fun SplashScreen(onTimeout: () -> Unit) {
+    val context = LocalContext.current
     val scale = remember { Animatable(0.5f) }
     val alpha = remember { Animatable(0f) }
     val rotation = remember { Animatable(-15f) }
+
+    // Get version name from BuildConfig or PackageManager
+    val versionName = remember {
+        try {
+            val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
+            packageInfo.versionName ?: "1.0"
+        } catch (e: Exception) {
+            "1.1" // Fallback for preview
+        }
+    }
 
     // Continuous pulse for the background circle
     val transition = rememberInfiniteTransition(label = "pulse")
@@ -139,7 +154,27 @@ fun SplashScreen(onTimeout: () -> Unit) {
                     fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
                     color = MaterialTheme.colorScheme.outline
                 )
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // Displaying the version name dynamically
+                Text(
+                    text = "v$versionName",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                )
             }
+        }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun SplashScreenPreview() {
+    TripKitTheme {
+        Surface {
+            SplashScreen(onTimeout = {})
         }
     }
 }

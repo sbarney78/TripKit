@@ -25,8 +25,9 @@ fun AddItemScreen(
     var notes by remember { mutableStateOf("") }
 
     val masterItems by masterViewModel.masterItems.collectAsState()
-    val filteredMasterItems = remember(name) {
-        if (name.isEmpty()) emptyList()
+    var showDropdown by remember { mutableStateOf(false) }
+    val filteredMasterItems = remember(name, showDropdown) {
+        if (!showDropdown || name.isEmpty()) emptyList()
         else masterItems.filter { !it.is_container && it.name.contains(name, ignoreCase = true) }
     }
 
@@ -52,27 +53,37 @@ fun AddItemScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
 
-            Box {
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = { Text("Item Name") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-                
-                if (filteredMasterItems.isNotEmpty()) {
-                    DropdownMenu(
-                        expanded = true,
-                        onDismissRequest = { },
-                        properties = androidx.compose.ui.window.PopupProperties(focusable = false)
-                    ) {
-                        filteredMasterItems.forEach { item ->
-                            DropdownMenuItem(
-                                text = { Text(item.name) },
-                                onClick = {
-                                    name = item.name
-                                }
-                            )
+            Box(modifier = Modifier.fillMaxWidth()) {
+                ExposedDropdownMenuBox(
+                    expanded = filteredMasterItems.isNotEmpty(),
+                    onExpandedChange = { }
+                ) {
+                    OutlinedTextField(
+                        value = name,
+                        onValueChange = { 
+                            name = it
+                            showDropdown = true
+                        },
+                        label = { Text("Item Name") },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .menuAnchor()
+                    )
+                    
+                    if (filteredMasterItems.isNotEmpty()) {
+                        ExposedDropdownMenu(
+                            expanded = true,
+                            onDismissRequest = { showDropdown = false }
+                        ) {
+                            filteredMasterItems.forEach { item ->
+                                DropdownMenuItem(
+                                    text = { Text(item.name) },
+                                    onClick = {
+                                        name = item.name
+                                        showDropdown = false
+                                    }
+                                )
+                            }
                         }
                     }
                 }

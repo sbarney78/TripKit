@@ -12,8 +12,8 @@ android {
         applicationId = "au.barney.tripkit"
         minSdk = 24
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "1.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -69,6 +69,9 @@ dependencies {
     implementation("androidx.room:room-runtime:$roomVersion")
     implementation("androidx.room:room-ktx:$roomVersion")
     kapt("androidx.room:room-compiler:$roomVersion")
+
+    // Gson for JSON Export/Import
+    implementation("com.google.code.gson:gson:2.10.1")
 
     // Compose BOM that matched compiler 1.5.14
     val composeBom = platform("androidx.compose:compose-bom:2024.04.01")

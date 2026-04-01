@@ -463,4 +463,38 @@ class TripKitRepository(private val dao: TripKitDao) {
     }
 
     suspend fun deleteItineraryItem(itemId: Int) = dao.deleteItineraryItem(itemId)
+
+    /**
+     * Imports a full trip data structure without affecting Master Inventory.
+     */
+    suspend fun importFullTripData(data: FullTripData) {
+        // 1. Insert List
+        val newListId = dao.insertList(data.list.copy(id = 0, created_at = getCurrentTimestamp())).toInt()
+
+        // 2. Insert Itinerary
+        data.itinerary.forEach { dao.insertItineraryItem(it.copy(id = 0, list_id = newListId)) }
+
+        // 3. Insert Entries & Items
+        data.entries.forEach { entry ->
+            val oldEntryId = entry.entry_id
+            val newEntryId = dao.insertEntry(entry.copy(entry_id = 0, list_id = newListId)).toInt()
+            
+            data.allItems.filter { it.entry_id == oldEntryId }.forEach { item ->
+                dao.insertItem(item.copy(item_id = 0, entry_id = newEntryId))
+            }
+        }
+
+        // 4. Insert Menu
+        data.menu.forEach { dao.insertMenuItem(it.copy(id = 0, list_id = newListId)) }
+
+        // 5. Insert Groups & Ingredients
+        data.ingredientGroups.forEach { group ->
+            val oldGroupId = group.id
+            val newGroupId = dao.insertIngredientGroup(group.copy(id = 0, list_id = newListId)).toInt()
+
+            data.allIngredients.filter { it.group_id == oldGroupId }.forEach { ing ->
+                dao.insertIngredient(ing.copy(id = 0, group_id = newGroupId))
+            }
+        }
+    }
 }

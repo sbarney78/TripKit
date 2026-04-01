@@ -190,6 +190,9 @@ fun IngredientScreen(
                     items(ingredients) { ingredient ->
                         IngredientItemRow(
                             ingredient = ingredient,
+                            onToggle = { checked ->
+                                viewModel.toggleIngredient(ingredient.id, checked)
+                            },
                             onEdit = {
                                 editIngredientId = ingredient.id
                                 editIngredientName = ingredient.ingredient_name
@@ -211,6 +214,7 @@ fun IngredientScreen(
 @Composable
 fun IngredientItemRow(
     ingredient: Ingredient,
+    onToggle: (Boolean) -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
@@ -220,7 +224,7 @@ fun IngredientItemRow(
         modifier = Modifier
             .fillMaxWidth()
             .combinedClickable(
-                onClick = { },
+                onClick = { onToggle(ingredient.is_checked != 1) },
                 onLongClick = { expanded = true }
             ),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
@@ -230,10 +234,15 @@ fun IngredientItemRow(
                 modifier = Modifier.padding(16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                Checkbox(
+                    checked = ingredient.is_checked == 1,
+                    onCheckedChange = { onToggle(it) }
+                )
                 Text(
                     text = ingredient.ingredient_name,
                     style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
+                    color = if (ingredient.is_checked == 1) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.onSurface
                 )
             }
 

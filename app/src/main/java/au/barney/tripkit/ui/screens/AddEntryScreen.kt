@@ -51,7 +51,7 @@ fun AddEntryScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
 
-            Box {
+            Column(modifier = Modifier.fillMaxWidth()) {
                 OutlinedTextField(
                     value = name,
                     onValueChange = { 
@@ -63,20 +63,24 @@ fun AddEntryScreen(
                 )
                 
                 if (filteredMasterItems.isNotEmpty()) {
-                    DropdownMenu(
-                        expanded = true,
-                        onDismissRequest = { showDropdown = false },
-                        properties = androidx.compose.ui.window.PopupProperties(focusable = false)
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 200.dp),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
                     ) {
-                        filteredMasterItems.forEach { item ->
-                            DropdownMenuItem(
-                                text = { Text(item.name) },
-                                onClick = {
-                                    name = item.name
-                                    type = if (item.is_container) "container" else "single"
-                                    showDropdown = false
-                                }
-                            )
+                        LazyColumn {
+                            items(filteredMasterItems) { item ->
+                                DropdownMenuItem(
+                                    text = { Text(item.name) },
+                                    onClick = {
+                                        name = item.name
+                                        type = if (item.is_container) "container" else "single"
+                                        showDropdown = false
+                                    }
+                                )
+                            }
                         }
                     }
                 }
