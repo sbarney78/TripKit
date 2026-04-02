@@ -122,6 +122,12 @@ interface TripKitDao {
     @Query("SELECT * FROM sub_items")
     suspend fun getAllSubItemsSync(): List<SubItem>
 
+    @Query("SELECT * FROM sub_items WHERE item_id IN (SELECT item_id FROM items WHERE entry_id IN (SELECT entry_id FROM entries WHERE list_id = :listId))")
+    fun getAllSubItemsForList(listId: Int): Flow<List<SubItem>>
+
+    @Query("SELECT * FROM sub_items WHERE item_id IN (SELECT item_id FROM items WHERE entry_id IN (SELECT entry_id FROM entries WHERE list_id = :listId))")
+    suspend fun getAllSubItemsForListSync(listId: Int): List<SubItem>
+
     @Query("SELECT * FROM sub_items WHERE id = :id")
     suspend fun getSubItem(id: Int): SubItem?
 

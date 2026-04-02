@@ -25,6 +25,9 @@ class ItemViewModel(
     private val _allItems = MutableStateFlow<List<Item>>(emptyList())
     val allItems: StateFlow<List<Item>> = _allItems
 
+    private val _allSubItems = MutableStateFlow<List<SubItem>>(emptyList())
+    val allSubItems: StateFlow<List<SubItem>> = _allSubItems
+
     private val _loading = MutableStateFlow(false)
     val loading: StateFlow<Boolean> = _loading
 
@@ -75,6 +78,14 @@ class ItemViewModel(
                 .catch { e -> _error.value = e.message }
                 .collect { all ->
                     _allItems.value = all
+                }
+        }
+        
+        viewModelScope.launch {
+            repository.getAllSubItemsForList(listId)
+                .catch { e -> _error.value = e.message }
+                .collect { all ->
+                    _allSubItems.value = all
                 }
         }
     }

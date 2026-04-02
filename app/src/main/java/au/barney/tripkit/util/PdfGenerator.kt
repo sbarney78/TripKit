@@ -1,15 +1,12 @@
 package au.barney.tripkit.util
 
 import android.content.Context
-import android.content.Intent
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Typeface
 import android.graphics.pdf.PdfDocument
 import android.os.*
 import android.print.*
-import android.widget.Toast
-import androidx.core.content.FileProvider
 import au.barney.tripkit.data.model.*
 import java.io.File
 import java.io.FileInputStream
@@ -306,6 +303,7 @@ object PdfGenerator {
         canvas.drawText("--- INVENTORY ---", PAGE_WIDTH/2, y, sectionPaint); y += 35f
         sectionStartY = y
         val itemsByEntry = data.allItems.groupBy { it.entry_id }
+        val subItemsByItemId = data.allSubItems.groupBy { it.item_id }
         data.entries.forEach { entry ->
             val r = checkLayout(pdfDocument, myPage, y, column, title, listName, sectionStartY)
             myPage = r.first; column = r.second; y = r.third; canvas = myPage.canvas
@@ -322,6 +320,17 @@ object PdfGenerator {
                     x = if (column == 1) COL1_X else COL2_X
                     val itemStatus = if (sub.is_checked == 1) "[X]" else "[ ]"
                     canvas.drawText("  $itemStatus ${sub.item_name} (x${sub.quantity})", x, y, detailPaint); y += 14f
+                    
+                    if (sub.is_container) {
+                        subItemsByItemId[sub.item_id]?.forEach { subSub ->
+                            val rSS = checkLayout(pdfDocument, myPage, y, column, title, listName, sectionStartY)
+                            myPage = rSS.first; column = rSS.second; y = rSS.third; canvas = myPage.canvas
+                            if (column == 1 && y == START_Y) sectionStartY = START_Y
+                            x = if (column == 1) COL1_X else COL2_X
+                            val ssStatus = if (subSub.is_checked == 1) "[X]" else "[ ]"
+                            canvas.drawText("      $ssStatus ${subSub.name} (x${subSub.quantity})", x, y, detailPaint); y += 13f
+                        }
+                    }
                 }
             }
             y += 4f
@@ -379,7 +388,7 @@ object PdfGenerator {
         return savePdf(context, pdfDocument, "FullTrip_${listName.replace(" ", "_")}.pdf")
     }
 
-    fun generateInventoryPdf(context: Context, listName: String, entries: List<Entry>, allItems: Map<Int, List<Item>>): File? {
+    fun generateInventoryPdf(context: Context, listName: String, entries: List<Entry>, allItems: Map<Int, List<Item>>, subItemsByItemId: Map<Int, List<SubItem>>): File? {
         val pdfDocument = PdfDocument()
         val boldPaint = Paint().apply { isFakeBoldText = true; textSize = 14f }
         val itemPaint = Paint().apply { textSize = 12f; color = Color.DKGRAY }
@@ -406,6 +415,17 @@ object PdfGenerator {
                     x = if (column == 1) COL1_X else COL2_X
                     val itemStatus = if (item.is_checked == 1) "[X]" else "[ ]"
                     canvas.drawText("      $itemStatus ${item.item_name} (x${item.quantity})", x, y, itemPaint); y += 18f
+                    
+                    if (item.is_container) {
+                        subItemsByItemId[item.item_id]?.forEach { subItem ->
+                            val rSS = checkLayout(pdfDocument, myPage, y, column, title, listName, sectionStartY)
+                            myPage = rSS.first; column = rSS.second; y = rSS.third; canvas = myPage.canvas
+                            if (column == 1 && y == START_Y) sectionStartY = START_Y
+                            x = if (column == 1) COL1_X else COL2_X
+                            val ssStatus = if (subItem.is_checked == 1) "[X]" else "[ ]"
+                            canvas.drawText("            $ssStatus ${subItem.name} (x${subItem.quantity})", x, y, itemPaint); y += 16f
+                        }
+                    }
                 }
             }
             if (!entry.notes.isNullOrEmpty()) {

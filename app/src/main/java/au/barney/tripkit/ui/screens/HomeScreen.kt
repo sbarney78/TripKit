@@ -255,6 +255,7 @@ fun HomeScreen(
                                                     itinerary = repository.getItinerarySync(list.id),
                                                     entries = repository.getEntriesSync(list.id),
                                                     allItems = repository.getAllItemsForListSync(list.id),
+                                                    allSubItems = repository.getAllSubItemsForListSync(list.id),
                                                     menu = repository.getMenuSync(list.id),
                                                     ingredientGroups = repository.getIngredientGroupsSync(list.id),
                                                     allIngredients = repository.getAllIngredientsForListSync(list.id)

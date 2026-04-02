@@ -45,6 +45,7 @@ fun EntryListScreen(
 ) {
     val entriesWithCount by viewModel.entriesWithCount.collectAsState()
     val allItems by itemViewModel.allItems.collectAsState()
+    val allSubItems by itemViewModel.allSubItems.collectAsState()
     val loading by viewModel.loading.collectAsState()
     val error by viewModel.error.collectAsState()
     val currentList by viewModel.currentList.collectAsState()
@@ -74,7 +75,8 @@ fun EntryListScreen(
                                 context = context,
                                 listName = currentList?.name ?: "List_$listId",
                                 entries = entriesWithCount.map { it.entry },
-                                allItems = allItems.groupBy { it.entry_id }
+                                allItems = allItems.groupBy { it.entry_id },
+                                subItemsByItemId = allSubItems.groupBy { it.item_id }
                             )
                             file?.let { onViewPdf(it.absolutePath) }
                         }

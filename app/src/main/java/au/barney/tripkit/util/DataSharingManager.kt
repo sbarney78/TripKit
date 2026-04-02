@@ -29,6 +29,7 @@ object DataSharingManager {
                     itinerary = repository.getItinerarySync(listId),
                     entries = repository.getEntriesSync(listId),
                     allItems = repository.getAllItemsForListSync(listId),
+                    allSubItems = repository.getAllSubItemsForListSync(listId),
                     menu = repository.getMenuSync(listId),
                     ingredientGroups = repository.getIngredientGroupsSync(listId),
                     allIngredients = repository.getAllIngredientsForListSync(listId)

@@ -426,6 +426,10 @@ class TripKitRepository(private val dao: TripKitDao) {
 
     suspend fun getSubItem(subItemId: Int): SubItem? = dao.getSubItem(subItemId)
 
+    fun getAllSubItemsForList(listId: Int): Flow<List<SubItem>> = dao.getAllSubItemsForList(listId)
+
+    suspend fun getAllSubItemsForListSync(listId: Int) = dao.getAllSubItemsForListSync(listId)
+
     suspend fun addSubItem(
         itemId: Int,
         name: String,
