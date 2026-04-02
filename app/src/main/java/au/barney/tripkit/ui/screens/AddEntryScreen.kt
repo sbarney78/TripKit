@@ -154,7 +154,7 @@ fun AddEntryScreen(
                         if (!exactMatch && name.isNotBlank()) {
                             showMasterDialog = true
                         } else {
-                            viewModel.addEntry(listId, name, qty, notes, type, imagePath)
+                            viewModel.addEntry(listId, name, qty, notes, type, imagePath, addToMaster = false)
                             onDone()
                         }
                     },
@@ -173,15 +173,14 @@ fun AddEntryScreen(
             text = { Text("'$name' is not in your Master Inventory. Would you like to add it for future use?") },
             confirmButton = {
                 Button(onClick = {
-                    masterViewModel.addMasterItem(name, type == "container", imagePath)
-                    viewModel.addEntry(listId, name, quantity.toIntOrNull() ?: 1, notes, type, imagePath)
+                    viewModel.addEntry(listId, name, quantity.toIntOrNull() ?: 1, notes, type, imagePath, addToMaster = true)
                     showMasterDialog = false
                     onDone()
                 }) { Text("Add & Save") }
             },
             dismissButton = {
                 TextButton(onClick = {
-                    viewModel.addEntry(listId, name, quantity.toIntOrNull() ?: 1, notes, type, imagePath)
+                    viewModel.addEntry(listId, name, quantity.toIntOrNull() ?: 1, notes, type, imagePath, addToMaster = false)
                     showMasterDialog = false
                     onDone()
                 }) { Text("Save Only") }

@@ -119,6 +119,9 @@ interface TripKitDao {
     @Query("SELECT * FROM sub_items WHERE item_id = :itemId")
     suspend fun getSubItemsSync(itemId: Int): List<SubItem>
 
+    @Query("SELECT * FROM sub_items")
+    suspend fun getAllSubItemsSync(): List<SubItem>
+
     @Query("SELECT * FROM sub_items WHERE id = :id")
     suspend fun getSubItem(id: Int): SubItem?
 
@@ -286,6 +289,9 @@ interface TripKitDao {
 
     @Query("SELECT * FROM master_sub_sub_items WHERE master_sub_item_id = :subItemId ORDER BY name COLLATE NOCASE ASC")
     suspend fun getMasterSubSubItemsSync(subItemId: Int): List<MasterSubSubItem>
+
+    @Query("SELECT * FROM master_sub_sub_items")
+    suspend fun getAllMasterSubSubItemsSync(): List<MasterSubSubItem>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertMasterSubSubItem(item: MasterSubSubItem): Long

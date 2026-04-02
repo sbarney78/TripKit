@@ -218,7 +218,8 @@ class TripKitRepository(private val dao: TripKitDao) {
         quantity: Int,
         notes: String?,
         listId: Int,
-        imagePath: String? = null
+        imagePath: String? = null,
+        addToMaster: Boolean = false
     ) {
         val entryId = dao.insertEntry(
             Entry(
@@ -265,9 +266,11 @@ class TripKitRepository(private val dao: TripKitDao) {
             }
         }
         
-        val masterItems = dao.getMasterItemsSyncList()
-        if (masterItems.none { it.name.equals(name, ignoreCase = true) }) {
-            dao.insertMasterItem(MasterItem(name = name, is_container = type == "container", default_quantity = quantity, image_path = imagePath))
+        if (addToMaster) {
+            val masterItems = dao.getMasterItemsSyncList()
+            if (masterItems.none { it.name.equals(name, ignoreCase = true) }) {
+                dao.insertMasterItem(MasterItem(name = name, is_container = type == "container", default_quantity = quantity, image_path = imagePath))
+            }
         }
     }
 
@@ -342,9 +345,32 @@ class TripKitRepository(private val dao: TripKitDao) {
         ).toInt()
 
         if (addToMaster) {
-            val masterItems = dao.getMasterItemsSyncList()
-            if (masterItems.none { it.name.equals(name, ignoreCase = true) }) {
-                dao.insertMasterItem(MasterItem(name = name, is_container = isContainer, default_quantity = quantity, image_path = imagePath))
+            val entry = dao.getEntry(entryId)
+            var addedToMasterSub = false
+            if (entry != null) {
+                // Try to find parent container in Master Level 1
+                val masterItem = dao.getMasterItemsSyncList().find { it.name.equals(entry.entry_name, ignoreCase = true) }
+                if (masterItem != null) {
+                    val existingSub = dao.getMasterSubItemsSync(masterItem.id).find { it.name.equals(name, ignoreCase = true) }
+                    if (existingSub == null) {
+                        dao.insertMasterSubItem(MasterSubItem(
+                            master_item_id = masterItem.id,
+                            name = name,
+                            default_quantity = quantity,
+                            is_container = isContainer,
+                            image_path = imagePath
+                        ))
+                    }
+                    addedToMasterSub = true
+                }
+            }
+            
+            if (!addedToMasterSub) {
+                // Fallback: only add to top level IF it doesn't exist anywhere in Master level 1
+                val masterItems = dao.getMasterItemsSyncList()
+                if (masterItems.none { it.name.equals(name, ignoreCase = true) }) {
+                    dao.insertMasterItem(MasterItem(name = name, is_container = isContainer, default_quantity = quantity, image_path = imagePath))
+                }
             }
         }
     }
@@ -352,9 +378,19 @@ class TripKitRepository(private val dao: TripKitDao) {
     suspend fun toggleItem(id: Int, checked: Int) {
         dao.toggleItem(id, checked)
         val item = dao.getItem(id)
+        
+        // 1. If it's a container, toggle all its sub-items
         if (item?.is_container == true) {
             val subItems = dao.getSubItemsSync(id)
             subItems.forEach { toggleSubItem(it.id, checked) }
+        }
+        
+        // 2. Update the parent entry's status if necessary
+        item?.let {
+            val entryId = it.entry_id
+            val allItems = dao.getItemsSync(entryId)
+            val allChecked = allItems.all { it.is_checked == 1 }
+            dao.toggleEntry(entryId, if (allChecked) 1 else 0)
         }
     }
 
@@ -395,7 +431,8 @@ class TripKitRepository(private val dao: TripKitDao) {
         name: String,
         quantity: Int,
         notes: String?,
-        imagePath: String? = null
+        imagePath: String? = null,
+        addToMaster: Boolean = false
     ) {
         dao.insertSubItem(
             SubItem(
@@ -407,9 +444,41 @@ class TripKitRepository(private val dao: TripKitDao) {
                 image_path = imagePath
             )
         )
+
+        if (addToMaster) {
+            val item = dao.getItem(itemId)
+            if (item != null) {
+                // Find parent container in Master Sub-Items (Level 2)
+                val masterSub = dao.getAllMasterSubItemsSync().find { it.name.equals(item.item_name, ignoreCase = true) }
+                if (masterSub != null) {
+                    val existingSubSub = dao.getMasterSubSubItemsSync(masterSub.id).find { it.name.equals(name, ignoreCase = true) }
+                    if (existingSubSub == null) {
+                        dao.insertMasterSubSubItem(MasterSubSubItem(
+                            master_sub_item_id = masterSub.id,
+                            name = name,
+                            default_quantity = quantity,
+                            image_path = imagePath
+                        ))
+                    }
+                }
+            }
+        }
     }
 
-    suspend fun toggleSubItem(id: Int, checked: Int) = dao.toggleSubItem(id, checked)
+    suspend fun toggleSubItem(id: Int, checked: Int) {
+        dao.toggleSubItem(id, checked)
+        
+        // Update parent item's status if necessary
+        val subItem = dao.getSubItem(id)
+        subItem?.let {
+            val itemId = it.item_id
+            val allSubItems = dao.getSubItemsSync(itemId)
+            val allChecked = allSubItems.all { it.is_checked == 1 }
+            
+            // This will recursively trigger the toggleItem logic to check parent entry
+            toggleItem(itemId, if (allChecked) 1 else 0)
+        }
+    }
 
     suspend fun deleteSubItem(id: Int) = dao.deleteSubItem(id)
 
@@ -610,6 +679,7 @@ class TripKitRepository(private val dao: TripKitDao) {
     suspend fun syncMasterPictures() {
         val allEntries = dao.getAllEntriesSync()
         val allItems = dao.getAllItemsSync()
+        val allSubItems = dao.getAllSubItemsSync()
         
         // Sync Master Items -> Entries
         val masterItems = dao.getMasterItemsSyncList()
@@ -624,6 +694,14 @@ class TripKitRepository(private val dao: TripKitDao) {
         masterSubItems.filter { it.image_path != null }.forEach { masterSub ->
             allItems.filter { it.item_name.equals(masterSub.name, ignoreCase = true) && it.image_path == null }.forEach { item ->
                 dao.updateItem(item.copy(image_path = masterSub.image_path))
+            }
+        }
+
+        // Sync Master Sub Sub Items -> Sub Items
+        val masterSubSubItems = dao.getAllMasterSubSubItemsSync()
+        masterSubSubItems.filter { it.image_path != null }.forEach { masterSubSub ->
+            allSubItems.filter { it.name.equals(masterSubSub.name, ignoreCase = true) && it.image_path == null }.forEach { subItem ->
+                dao.updateSubItem(subItem.copy(image_path = masterSubSub.image_path))
             }
         }
     }

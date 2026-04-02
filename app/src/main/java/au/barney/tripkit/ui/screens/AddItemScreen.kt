@@ -141,7 +141,7 @@ fun AddItemScreen(
                         if (!exactMatch && name.isNotBlank()) {
                             showMasterDialog = true
                         } else {
-                            viewModel.addItem(name, qty, notes, isContainer, imagePath, addToMaster = true)
+                            viewModel.addItem(name, qty, notes, isContainer, imagePath, addToMaster = false)
                             onDone()
                         }
                     },
@@ -160,7 +160,6 @@ fun AddItemScreen(
             text = { Text("'$name' is not in your Master Inventory. Would you like to add it for future use?") },
             confirmButton = {
                 Button(onClick = {
-                    masterViewModel.addMasterItem(name, isContainer, imagePath)
                     viewModel.addItem(name, if (isContainer) 0 else (quantity.toIntOrNull() ?: 1), notes, isContainer, imagePath, addToMaster = true)
                     showMasterDialog = false
                     onDone()

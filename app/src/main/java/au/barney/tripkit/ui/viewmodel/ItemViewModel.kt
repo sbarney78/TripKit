@@ -158,7 +158,7 @@ class ItemViewModel(
     fun addSubItem(itemId: Int, name: String, quantity: Int, notes: String?, imagePath: String? = null, addToMaster: Boolean = true) {
         viewModelScope.launch {
             try {
-                repository.addSubItem(itemId, name, quantity, notes, imagePath)
+                repository.addSubItem(itemId, name, quantity, notes, imagePath, addToMaster)
             } catch (e: Exception) {
                 _error.value = e.message
             }

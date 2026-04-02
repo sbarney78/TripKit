@@ -43,6 +43,8 @@ fun SubContainerItemsScreen(
     var itemNotes by remember { mutableStateOf("") }
     var imagePath by remember { mutableStateOf<String?>(null) }
 
+    var showMasterDialog by remember { mutableStateOf(false) }
+
     LaunchedEffect(parentItemId) {
         viewModel.loadItem(parentItemId)
     }
@@ -63,14 +65,36 @@ fun SubContainerItemsScreen(
             confirmButton = {
                 Button(onClick = {
                     if (itemName.isNotBlank()) {
-                        viewModel.addSubItem(parentItemId, itemName, itemQty.toIntOrNull() ?: 1, itemNotes, imagePath, addToMaster = true)
-                        itemName = ""; itemQty = "1"; itemNotes = ""; imagePath = null
-                        showAddDialog = false
+                        showMasterDialog = true
                     }
                 }) { Text("Add") }
             },
             dismissButton = {
                 TextButton(onClick = { showAddDialog = false }) { Text("Cancel") }
+            }
+        )
+    }
+
+    if (showMasterDialog) {
+        AlertDialog(
+            onDismissRequest = { showMasterDialog = false },
+            title = { Text("Add to Master List?") },
+            text = { Text("'$itemName' is being added. Would you like to add it to the Master Inventory for future use?") },
+            confirmButton = {
+                Button(onClick = {
+                    viewModel.addSubItem(parentItemId, itemName, itemQty.toIntOrNull() ?: 1, itemNotes, imagePath, addToMaster = true)
+                    itemName = ""; itemQty = "1"; itemNotes = ""; imagePath = null
+                    showMasterDialog = false
+                    showAddDialog = false
+                }) { Text("Add & Save") }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    viewModel.addSubItem(parentItemId, itemName, itemQty.toIntOrNull() ?: 1, itemNotes, imagePath, addToMaster = false)
+                    itemName = ""; itemQty = "1"; itemNotes = ""; imagePath = null
+                    showMasterDialog = false
+                    showAddDialog = false
+                }) { Text("Save Only") }
             }
         )
     }
@@ -138,7 +162,10 @@ fun SubContainerItemsScreen(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            items(subItems) { item ->
+            items(
+                items = subItems,
+                key = { it.id }
+            ) { item ->
                 SubItemRow(
                     item = item,
                     onToggleChecked = { checked -> viewModel.toggleSubItem(item.id, checked) },
@@ -162,6 +189,7 @@ fun SubItemRow(
     onEdit: () -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
+    var showFullScreen by remember { mutableStateOf(false) }
 
     Card(
         modifier = Modifier
@@ -183,7 +211,10 @@ fun SubItemRow(
                     AsyncImage(
                         model = item.image_path,
                         contentDescription = null,
-                        modifier = Modifier.size(50.dp).clip(RoundedCornerShape(4.dp)),
+                        modifier = Modifier
+                            .size(50.dp)
+                            .clip(RoundedCornerShape(4.dp))
+                            .clickable { showFullScreen = true },
                         contentScale = ContentScale.Crop
                     )
                     Spacer(Modifier.width(12.dp))
@@ -217,5 +248,9 @@ fun SubItemRow(
                 )
             }
         }
+    }
+
+    if (showFullScreen && item.image_path != null) {
+        FullScreenImageDialog(item.image_path) { showFullScreen = false }
     }
 }
