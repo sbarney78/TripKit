@@ -123,7 +123,10 @@ fun EntryListScreen(
                         contentPadding = PaddingValues(16.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        items(entriesWithCount) { itemWithCount ->
+                        items(
+                            items = entriesWithCount,
+                            key = { it.entry.entry_id }
+                        ) { itemWithCount ->
                             EntryRow(
                                 entry = itemWithCount.entry,
                                 subItemCount = itemWithCount.subItemCount,

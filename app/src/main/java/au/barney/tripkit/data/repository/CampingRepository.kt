@@ -608,7 +608,24 @@ class TripKitRepository(private val dao: TripKitDao) {
     suspend fun deleteMasterSubSubItem(id: Int) = dao.deleteMasterSubSubItem(id)
 
     suspend fun syncMasterPictures() {
-        // Placeholder
+        val allEntries = dao.getAllEntriesSync()
+        val allItems = dao.getAllItemsSync()
+        
+        // Sync Master Items -> Entries
+        val masterItems = dao.getMasterItemsSyncList()
+        masterItems.filter { it.image_path != null }.forEach { master ->
+            allEntries.filter { it.entry_name.equals(master.name, ignoreCase = true) && it.image_path == null }.forEach { entry ->
+                dao.updateEntry(entry.copy(image_path = master.image_path))
+            }
+        }
+        
+        // Sync Master Sub Items -> Items
+        val masterSubItems = dao.getAllMasterSubItemsSync()
+        masterSubItems.filter { it.image_path != null }.forEach { masterSub ->
+            allItems.filter { it.item_name.equals(masterSub.name, ignoreCase = true) && it.image_path == null }.forEach { item ->
+                dao.updateItem(item.copy(image_path = masterSub.image_path))
+            }
+        }
     }
 
 

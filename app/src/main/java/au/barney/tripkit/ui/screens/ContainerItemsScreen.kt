@@ -105,7 +105,10 @@ fun ContainerItemsScreen(
                         contentPadding = PaddingValues(12.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        items(itemsWithCount) { itemWithCount ->
+                        items(
+                            items = itemsWithCount,
+                            key = { it.item.item_id }
+                        ) { itemWithCount ->
                             ItemRow(
                                 item = itemWithCount.item,
                                 subSubItemCount = itemWithCount.subSubItemCount,
