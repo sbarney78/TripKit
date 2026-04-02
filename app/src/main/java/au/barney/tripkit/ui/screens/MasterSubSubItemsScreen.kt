@@ -41,7 +41,7 @@ fun MasterSubSubItemsScreen(
     var showAddDialog by remember { mutableStateOf(false) }
     var itemName by remember { mutableStateOf("") }
     var itemQty by remember { mutableStateOf("1") }
-    var isContainer by remember { mutableStateOf(false) }
+    val isContainer = false // Nested containers not allowed in Master Sub-Sub Items
     var imagePath by remember { mutableStateOf<String?>(null) }
 
     var showEditDialog by remember { mutableStateOf(false) }
@@ -55,27 +55,21 @@ fun MasterSubSubItemsScreen(
         AlertDialog(
             onDismissRequest = { 
                 showAddDialog = false
-                itemName = ""; itemQty = "1"; imagePath = null; isContainer = false
+                itemName = ""; itemQty = "1"; imagePath = null
             },
             title = { Text("Add Item to $containerName") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(value = itemName, onValueChange = { itemName = it }, label = { Text("Item Name") }, modifier = Modifier.fillMaxWidth())
-                    if (!isContainer) {
-                        OutlinedTextField(value = itemQty, onValueChange = { itemQty = it }, label = { Text("Default Quantity") }, modifier = Modifier.fillMaxWidth())
-                    }
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Checkbox(checked = isContainer, onCheckedChange = { isContainer = it })
-                        Text("Is Container")
-                    }
+                    OutlinedTextField(value = itemQty, onValueChange = { itemQty = it }, label = { Text("Default Quantity") }, modifier = Modifier.fillMaxWidth())
                     ImagePicker(currentImagePath = imagePath, onImageSelected = { imagePath = it })
                 }
             },
             confirmButton = {
                 Button(onClick = {
                     if (itemName.isNotBlank()) {
-                        viewModel.addMasterSubSubItem(masterSubItemId, itemName, if (isContainer) 0 else (itemQty.toIntOrNull() ?: 1), isContainer, imagePath)
-                        itemName = ""; itemQty = "1"; imagePath = null; isContainer = false
+                        viewModel.addMasterSubSubItem(masterSubItemId, itemName, itemQty.toIntOrNull() ?: 1, isContainer, imagePath)
+                        itemName = ""; itemQty = "1"; imagePath = null
                         showAddDialog = false
                     }
                 }) { Text("Add") }
@@ -83,7 +77,7 @@ fun MasterSubSubItemsScreen(
             dismissButton = {
                 TextButton(onClick = { 
                     showAddDialog = false
-                    itemName = ""; itemQty = "1"; imagePath = null; isContainer = false
+                    itemName = ""; itemQty = "1"; imagePath = null
                 }) { Text("Cancel") }
             }
         )
@@ -92,7 +86,7 @@ fun MasterSubSubItemsScreen(
     if (showEditDialog && editItem != null) {
         var editName by remember { mutableStateOf(editItem!!.name) }
         var editQty by remember { mutableStateOf(editItem!!.default_quantity.toString()) }
-        var editIsContainer by remember { mutableStateOf(editItem!!.is_container) }
+        val editIsContainer = editItem!!.is_container
         var editImagePath by remember { mutableStateOf(editItem!!.image_path) }
 
         AlertDialog(
@@ -103,10 +97,6 @@ fun MasterSubSubItemsScreen(
                     OutlinedTextField(value = editName, onValueChange = { editName = it }, label = { Text("Item Name") }, modifier = Modifier.fillMaxWidth())
                     if (!editIsContainer) {
                         OutlinedTextField(value = editQty, onValueChange = { editQty = it }, label = { Text("Default Quantity") }, modifier = Modifier.fillMaxWidth())
-                    }
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Checkbox(checked = editIsContainer, onCheckedChange = { editIsContainer = it })
-                        Text("Is Container")
                     }
                     ImagePicker(currentImagePath = editImagePath, onImageSelected = { editImagePath = it })
                 }

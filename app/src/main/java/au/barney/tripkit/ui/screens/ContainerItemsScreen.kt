@@ -38,7 +38,7 @@ fun ContainerItemsScreen(
     onEditItem: (Int) -> Unit,
     onOpenSubContainer: (Int) -> Unit = {}
 ) {
-    val items by viewModel.items.collectAsState()
+    val itemsWithCount by viewModel.itemsWithCount.collectAsState()
     val loading by viewModel.loading.collectAsState()
     val error by viewModel.error.collectAsState()
     val entries by entryViewModel.entries.collectAsState()
@@ -105,21 +105,22 @@ fun ContainerItemsScreen(
                         contentPadding = PaddingValues(12.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        items(items) { item ->
+                        items(itemsWithCount) { itemWithCount ->
                             ItemRow(
-                                item = item,
+                                item = itemWithCount.item,
+                                subSubItemCount = itemWithCount.subSubItemCount,
                                 onToggleChecked = { checked ->
-                                    viewModel.toggleItem(item.item_id, checked)
+                                    viewModel.toggleItem(itemWithCount.item.item_id, checked)
                                 },
                                 onEdit = {
-                                    onEditItem(item.item_id)
+                                    onEditItem(itemWithCount.item.item_id)
                                 },
                                 onDelete = {
-                                    viewModel.deleteItem(item.item_id)
+                                    viewModel.deleteItem(itemWithCount.item.item_id)
                                 },
                                 onClick = {
-                                    if (item.is_container) {
-                                        onOpenSubContainer(item.item_id)
+                                    if (itemWithCount.item.is_container) {
+                                        onOpenSubContainer(itemWithCount.item.item_id)
                                     }
                                 }
                             )
@@ -135,6 +136,7 @@ fun ContainerItemsScreen(
 @Composable
 fun ItemRow(
     item: Item,
+    subSubItemCount: Int,
     onToggleChecked: (Boolean) -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
@@ -212,6 +214,16 @@ fun ItemRow(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
+                }
+
+                if (item.is_container) {
+                    Text(
+                        text = "Items: $subSubItemCount",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(end = 8.dp)
+                    )
+                    Text(">", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
                 }
             }
 

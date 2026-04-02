@@ -3,7 +3,10 @@ package au.barney.tripkit.ui.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import au.barney.tripkit.data.model.Item
+import au.barney.tripkit.data.model.ItemWithCount
+import au.barney.tripkit.data.model.SubItem
 import au.barney.tripkit.data.repository.TripKitRepository
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
@@ -15,6 +18,9 @@ class ItemViewModel(
 
     private val _items = MutableStateFlow<List<Item>>(emptyList())
     val items: StateFlow<List<Item>> = _items
+
+    private val _itemsWithCount = MutableStateFlow<List<ItemWithCount>>(emptyList())
+    val itemsWithCount: StateFlow<List<ItemWithCount>> = _itemsWithCount
 
     private val _allItems = MutableStateFlow<List<Item>>(emptyList())
     val allItems: StateFlow<List<Item>> = _allItems
@@ -38,15 +44,26 @@ class ItemViewModel(
 
         viewModelScope.launch {
             _loading.value = true
-            repository.getItems(entryId)
-                .catch { e ->
-                    _error.value = e.message ?: "Unknown error"
-                    _loading.value = false
-                }
-                .collect { itemsList ->
-                    _items.value = itemsList
-                    _loading.value = false
-                }
+            
+            // Get simple items
+            launch {
+                repository.getItems(entryId)
+                    .catch { e -> _error.value = e.message }
+                    .collect { _items.value = it }
+            }
+
+            // Get items with count
+            launch {
+                repository.getItemsWithCount(entryId)
+                    .catch { e ->
+                        _error.value = e.message ?: "Unknown error"
+                        _loading.value = false
+                    }
+                    .collect { itemsList ->
+                        _itemsWithCount.value = itemsList
+                        _loading.value = false
+                    }
+            }
         }
     }
 
@@ -97,7 +114,7 @@ class ItemViewModel(
         viewModelScope.launch {
             try {
                 repository.toggleItem(
-                    itemId = itemId,
+                    id = itemId,
                     checked = if (checked) 1 else 0
                 )
             } catch (e: Exception) {
@@ -130,6 +147,50 @@ class ItemViewModel(
                 repository.updateItem(itemId, name, quantity, notes, isContainer, imagePath)
             } catch (e: Exception) {
                 _error.value = e.message ?: "Unknown error"
+            }
+        }
+    }
+
+    // ------------------ SUB ITEMS ------------------
+
+    fun getSubItems(itemId: Int): Flow<List<SubItem>> = repository.getSubItems(itemId)
+
+    fun addSubItem(itemId: Int, name: String, quantity: Int, notes: String?, imagePath: String? = null, addToMaster: Boolean = true) {
+        viewModelScope.launch {
+            try {
+                repository.addSubItem(itemId, name, quantity, notes, imagePath)
+            } catch (e: Exception) {
+                _error.value = e.message
+            }
+        }
+    }
+
+    fun toggleSubItem(id: Int, checked: Boolean) {
+        viewModelScope.launch {
+            try {
+                repository.toggleSubItem(id, if (checked) 1 else 0)
+            } catch (e: Exception) {
+                _error.value = e.message
+            }
+        }
+    }
+
+    fun deleteSubItem(id: Int) {
+        viewModelScope.launch {
+            try {
+                repository.deleteSubItem(id)
+            } catch (e: Exception) {
+                _error.value = e.message
+            }
+        }
+    }
+
+    fun updateSubItem(subItem: SubItem) {
+        viewModelScope.launch {
+            try {
+                repository.updateSubItem(subItem)
+            } catch (e: Exception) {
+                _error.value = e.message
             }
         }
     }

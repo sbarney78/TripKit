@@ -2,10 +2,7 @@ package au.barney.tripkit.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import au.barney.tripkit.data.model.MasterItem
-import au.barney.tripkit.data.model.MasterItemWithCount
-import au.barney.tripkit.data.model.MasterSubItem
-import au.barney.tripkit.data.model.MasterSubSubItem
+import au.barney.tripkit.data.model.*
 import au.barney.tripkit.data.repository.TripKitRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -25,6 +22,9 @@ class MasterItemViewModel(
 
     private val _masterSubItems = MutableStateFlow<List<MasterSubItem>>(emptyList())
     val masterSubItems: StateFlow<List<MasterSubItem>> = _masterSubItems
+
+    private val _masterSubItemsWithCount = MutableStateFlow<List<MasterSubItemWithCount>>(emptyList())
+    val masterSubItemsWithCount: StateFlow<List<MasterSubItemWithCount>> = _masterSubItemsWithCount
 
     private val _masterSubSubItems = MutableStateFlow<List<MasterSubSubItem>>(emptyList())
     val masterSubSubItems: StateFlow<List<MasterSubSubItem>> = _masterSubSubItems
@@ -106,14 +106,27 @@ class MasterItemViewModel(
     fun loadMasterSubItems(masterItemId: Int) {
         currentMasterItemId = masterItemId
         viewModelScope.launch {
-            repository.getMasterSubItems(masterItemId)
-                .catch { e -> _error.value = e.message }
-                .collectLatest { list ->
-                    // Only update if this is still the container the user is looking at
-                    if (currentMasterItemId == masterItemId) {
-                        _masterSubItems.value = list
+            // Simple list
+            launch {
+                repository.getMasterSubItems(masterItemId)
+                    .catch { e -> _error.value = e.message }
+                    .collectLatest { list ->
+                        if (currentMasterItemId == masterItemId) {
+                            _masterSubItems.value = list
+                        }
                     }
-                }
+            }
+            
+            // With count
+            launch {
+                repository.getMasterSubItemsWithCount(masterItemId)
+                    .catch { e -> _error.value = e.message }
+                    .collectLatest { list ->
+                        if (currentMasterItemId == masterItemId) {
+                            _masterSubItemsWithCount.value = list
+                        }
+                    }
+            }
         }
     }
 

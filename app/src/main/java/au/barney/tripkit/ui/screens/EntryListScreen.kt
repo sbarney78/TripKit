@@ -207,10 +207,12 @@ fun EntryRow(
                         color = if (entry.is_checked == 1) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.onSurface
                     )
 
-                    Text(
-                        text = "Qty: ${entry.quantity}",
-                        style = MaterialTheme.typography.bodyMedium
-                    )
+                    if (!isContainer) {
+                        Text(
+                            text = "Qty: ${entry.quantity}",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
 
                     if (!entry.notes.isNullOrEmpty()) {
                         Text(

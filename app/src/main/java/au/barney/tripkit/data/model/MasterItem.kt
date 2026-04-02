@@ -4,6 +4,7 @@ import androidx.room.ColumnInfo
 import androidx.room.Embedded
 import androidx.room.Entity
 import androidx.room.PrimaryKey
+import java.util.UUID
 
 @Entity(tableName = "master_items")
 data class MasterItem(
@@ -14,7 +15,11 @@ data class MasterItem(
     val category: String? = null,
     @ColumnInfo(defaultValue = "0")
     val is_container: Boolean = false,
-    val image_path: String? = null
+    val image_path: String? = null,
+    @ColumnInfo(defaultValue = "")
+    val sync_id: String = UUID.randomUUID().toString(),
+    @ColumnInfo(defaultValue = "0")
+    val last_updated: Long = System.currentTimeMillis()
 )
 
 /**

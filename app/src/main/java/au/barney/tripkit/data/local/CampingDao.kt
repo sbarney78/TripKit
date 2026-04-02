@@ -27,16 +27,16 @@ interface TripKitDao {
     suspend fun deleteList(listId: Int)
 
     // ------------------ ENTRIES ------------------
-    @Query("SELECT * FROM entries WHERE list_id = :listId ORDER BY entry_name ASC")
+    @Query("SELECT * FROM entries WHERE list_id = :listId ORDER BY entry_name COLLATE NOCASE ASC")
     fun getEntries(listId: Int): Flow<List<Entry>>
 
     @Query("""
         SELECT *, (SELECT COUNT(*) FROM items WHERE entry_id = entries.entry_id) as subItemCount 
-        FROM entries WHERE list_id = :listId ORDER BY entry_name ASC
+        FROM entries WHERE list_id = :listId ORDER BY entry_name COLLATE NOCASE ASC
     """)
     fun getEntriesWithCount(listId: Int): Flow<List<EntryWithCount>>
 
-    @Query("SELECT * FROM entries WHERE list_id = :listId ORDER BY entry_name ASC")
+    @Query("SELECT * FROM entries WHERE list_id = :listId ORDER BY entry_name COLLATE NOCASE ASC")
     suspend fun getEntriesSync(listId: Int): List<Entry>
     
     @Query("SELECT * FROM entries")
@@ -67,19 +67,25 @@ interface TripKitDao {
     fun getCheckedEntriesCount(listId: Int): Flow<Int>
 
     // ------------------ ITEMS ------------------
-    @Query("SELECT * FROM items WHERE entry_id = :entryId ORDER BY item_name ASC")
+    @Query("SELECT * FROM items WHERE entry_id = :entryId ORDER BY item_name COLLATE NOCASE ASC")
     fun getItems(entryId: Int): Flow<List<Item>>
 
-    @Query("SELECT * FROM items WHERE entry_id = :entryId ORDER BY item_name ASC")
+    @Query("""
+        SELECT *, (SELECT COUNT(*) FROM sub_items WHERE item_id = items.item_id) as subSubItemCount 
+        FROM items WHERE entry_id = :entryId ORDER BY item_name COLLATE NOCASE ASC
+    """)
+    fun getItemsWithCount(entryId: Int): Flow<List<ItemWithCount>>
+
+    @Query("SELECT * FROM items WHERE entry_id = :entryId ORDER BY item_name COLLATE NOCASE ASC")
     suspend fun getItemsSync(entryId: Int): List<Item>
     
     @Query("SELECT * FROM items")
     suspend fun getAllItemsSync(): List<Item>
 
-    @Query("SELECT * FROM items WHERE entry_id IN (SELECT entry_id FROM entries WHERE list_id = :listId) ORDER BY item_name ASC")
+    @Query("SELECT * FROM items WHERE entry_id IN (SELECT entry_id FROM entries WHERE list_id = :listId) ORDER BY item_name COLLATE NOCASE ASC")
     fun getAllItemsForList(listId: Int): Flow<List<Item>>
 
-    @Query("SELECT * FROM items WHERE entry_id IN (SELECT entry_id FROM entries WHERE list_id = :listId) ORDER BY item_name ASC")
+    @Query("SELECT * FROM items WHERE entry_id IN (SELECT entry_id FROM entries WHERE list_id = :listId) ORDER BY item_name COLLATE NOCASE ASC")
     suspend fun getAllItemsForListSync(listId: Int): List<Item>
 
     @Query("SELECT * FROM items WHERE item_id = :itemId")
@@ -105,6 +111,28 @@ interface TripKitDao {
 
     @Query("SELECT COUNT(*) FROM items WHERE entry_id IN (SELECT entry_id FROM entries WHERE list_id = :listId) AND is_checked = 1")
     fun getCheckedSubItemsCount(listId: Int): Flow<Int>
+
+    // ------------------ SUB ITEMS (3rd LEVEL) ------------------
+    @Query("SELECT * FROM sub_items WHERE item_id = :itemId ORDER BY name COLLATE NOCASE ASC")
+    fun getSubItems(itemId: Int): Flow<List<SubItem>>
+
+    @Query("SELECT * FROM sub_items WHERE item_id = :itemId")
+    suspend fun getSubItemsSync(itemId: Int): List<SubItem>
+
+    @Query("SELECT * FROM sub_items WHERE id = :id")
+    suspend fun getSubItem(id: Int): SubItem?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertSubItem(subItem: SubItem): Long
+
+    @Update
+    suspend fun updateSubItem(subItem: SubItem)
+
+    @Query("DELETE FROM sub_items WHERE id = :id")
+    suspend fun deleteSubItem(id: Int)
+
+    @Query("UPDATE sub_items SET is_checked = :checked WHERE id = :id")
+    suspend fun toggleSubItem(id: Int, checked: Int)
 
     // ------------------ MENU ------------------
     @Query("""
@@ -144,10 +172,10 @@ interface TripKitDao {
     suspend fun deleteMenuItem(menuId: Int)
 
     // ------------------ INGREDIENT GROUPS ------------------
-    @Query("SELECT * FROM ingredient_groups WHERE list_id = :listId ORDER BY group_name ASC")
+    @Query("SELECT * FROM ingredient_groups WHERE list_id = :listId ORDER BY group_name COLLATE NOCASE ASC")
     fun getIngredientGroups(listId: Int): Flow<List<IngredientGroup>>
 
-    @Query("SELECT * FROM ingredient_groups WHERE list_id = :listId ORDER BY group_name ASC")
+    @Query("SELECT * FROM ingredient_groups WHERE list_id = :listId ORDER BY group_name COLLATE NOCASE ASC")
     suspend fun getIngredientGroupsSync(listId: Int): List<IngredientGroup>
 
     @Query("SELECT * FROM ingredient_groups WHERE id = :groupId")
@@ -166,16 +194,16 @@ interface TripKitDao {
     suspend fun deleteIngredientGroup(groupId: Int)
 
     // ------------------ INGREDIENTS ------------------
-    @Query("SELECT * FROM ingredients WHERE group_id = :groupId ORDER BY ingredient_name ASC")
+    @Query("SELECT * FROM ingredients WHERE group_id = :groupId ORDER BY ingredient_name COLLATE NOCASE ASC")
     fun getIngredients(groupId: Int): Flow<List<Ingredient>>
 
-    @Query("SELECT * FROM ingredients WHERE group_id = :groupId ORDER BY ingredient_name ASC")
+    @Query("SELECT * FROM ingredients WHERE group_id = :groupId ORDER BY ingredient_name COLLATE NOCASE ASC")
     suspend fun getIngredientsSync(groupId: Int): List<Ingredient>
 
-    @Query("SELECT * FROM ingredients WHERE group_id IN (SELECT id FROM ingredient_groups WHERE list_id = :listId) ORDER BY ingredient_name ASC")
+    @Query("SELECT * FROM ingredients WHERE group_id IN (SELECT id FROM ingredient_groups WHERE list_id = :listId) ORDER BY ingredient_name COLLATE NOCASE ASC")
     fun getAllIngredientsForList(listId: Int): Flow<List<Ingredient>>
 
-    @Query("SELECT * FROM ingredients WHERE group_id IN (SELECT id FROM ingredient_groups WHERE list_id = :listId) ORDER BY ingredient_name ASC")
+    @Query("SELECT * FROM ingredients WHERE group_id IN (SELECT id FROM ingredient_groups WHERE list_id = :listId) ORDER BY ingredient_name COLLATE NOCASE ASC")
     suspend fun getAllIngredientsForListSync(listId: Int): List<Ingredient>
 
     @Query("SELECT * FROM ingredients WHERE id = :ingredientId")
@@ -199,20 +227,20 @@ interface TripKitDao {
     // ------------------ MASTER ITEMS ------------------
     @Query("""
         SELECT *, (SELECT COUNT(*) FROM master_sub_items WHERE master_item_id = master_items.id) as subItemCount 
-        FROM master_items ORDER BY name ASC
+        FROM master_items ORDER BY name COLLATE NOCASE ASC
     """)
     fun getMasterItemsWithCount(): Flow<List<MasterItemWithCount>>
 
     @Query("""
         SELECT *, (SELECT COUNT(*) FROM master_sub_items WHERE master_item_id = master_items.id) as subItemCount 
-        FROM master_items ORDER BY name ASC
+        FROM master_items ORDER BY name COLLATE NOCASE ASC
     """)
     suspend fun getMasterItemsSyncListWithCount(): List<MasterItemWithCount>
 
-    @Query("SELECT * FROM master_items ORDER BY name ASC")
+    @Query("SELECT * FROM master_items ORDER BY name COLLATE NOCASE ASC")
     fun getMasterItems(): Flow<List<MasterItem>>
 
-    @Query("SELECT * FROM master_items ORDER BY name ASC")
+    @Query("SELECT * FROM master_items ORDER BY name COLLATE NOCASE ASC")
     suspend fun getMasterItemsSyncList(): List<MasterItem>
 
     @Query("SELECT * FROM master_items WHERE id = :id")
@@ -228,8 +256,14 @@ interface TripKitDao {
     suspend fun deleteMasterItem(id: Int)
 
     // ------------------ MASTER SUB ITEMS ------------------
-    @Query("SELECT * FROM master_sub_items WHERE master_item_id = :masterItemId ORDER BY name ASC")
+    @Query("SELECT * FROM master_sub_items WHERE master_item_id = :masterItemId ORDER BY name COLLATE NOCASE ASC")
     fun getMasterSubItems(masterItemId: Int): Flow<List<MasterSubItem>>
+
+    @Query("""
+        SELECT *, (SELECT COUNT(*) FROM master_sub_sub_items WHERE master_sub_item_id = master_sub_items.id) as subSubItemCount 
+        FROM master_sub_items WHERE master_item_id = :masterItemId ORDER BY name COLLATE NOCASE ASC
+    """)
+    fun getMasterSubItemsWithCount(masterItemId: Int): Flow<List<MasterSubItemWithCount>>
 
     @Query("SELECT * FROM master_sub_items WHERE master_item_id = :masterItemId")
     suspend fun getMasterSubItemsSync(masterItemId: Int): List<MasterSubItem>
@@ -247,8 +281,11 @@ interface TripKitDao {
     suspend fun deleteMasterSubItem(id: Int)
 
     // ------------------ MASTER SUB SUB ITEMS ------------------
-    @Query("SELECT * FROM master_sub_sub_items WHERE master_sub_item_id = :subItemId ORDER BY name ASC")
+    @Query("SELECT * FROM master_sub_sub_items WHERE master_sub_item_id = :subItemId ORDER BY name COLLATE NOCASE ASC")
     fun getMasterSubSubItems(subItemId: Int): Flow<List<MasterSubSubItem>>
+
+    @Query("SELECT * FROM master_sub_sub_items WHERE master_sub_item_id = :subItemId ORDER BY name COLLATE NOCASE ASC")
+    suspend fun getMasterSubSubItemsSync(subItemId: Int): List<MasterSubSubItem>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertMasterSubSubItem(item: MasterSubSubItem): Long

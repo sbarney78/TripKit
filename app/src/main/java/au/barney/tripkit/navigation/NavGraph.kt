@@ -172,6 +172,20 @@ fun AppNavGraph(modifier: Modifier = Modifier) {
                 masterItemViewModel = masterItemViewModel,
                 onAddItem = { navController.navigate("add_item/$entryId") },
                 onBack = { navController.popBackStack() },
+                onEditItem = { itemId -> navController.navigate("edit_item/$itemId") },
+                onOpenSubContainer = { itemId -> navController.navigate("sub_items/$itemId") }
+            )
+        }
+
+        composable(
+            route = "sub_items/{itemId}",
+            arguments = listOf(navArgument("itemId") { type = NavType.IntType })
+        ) { backStackEntry ->
+            val itemId = backStackEntry.arguments?.getInt("itemId") ?: 0
+            SubContainerItemsScreen(
+                parentItemId = itemId,
+                viewModel = itemViewModel,
+                onBack = { navController.popBackStack() },
                 onEditItem = { itemId -> navController.navigate("edit_item/$itemId") }
             )
         }

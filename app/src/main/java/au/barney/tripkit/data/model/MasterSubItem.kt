@@ -1,10 +1,12 @@
 package au.barney.tripkit.data.model
 
 import androidx.room.ColumnInfo
+import androidx.room.Embedded
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import java.util.UUID
 
 @Entity(
     tableName = "master_sub_items",
@@ -26,10 +28,14 @@ data class MasterSubItem(
     val default_quantity: Int = 1,
     val image_path: String? = null,
     @ColumnInfo(defaultValue = "0")
-    val is_container: Boolean = false
+    val is_container: Boolean = false,
+    @ColumnInfo(defaultValue = "")
+    val sync_id: String = UUID.randomUUID().toString(),
+    @ColumnInfo(defaultValue = "0")
+    val last_updated: Long = System.currentTimeMillis()
 )
 
 data class MasterSubItemWithCount(
-    val subItem: MasterSubItem,
+    @Embedded val subItem: MasterSubItem,
     val subSubItemCount: Int
 )

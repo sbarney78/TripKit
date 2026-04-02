@@ -1,7 +1,6 @@
 package au.barney.tripkit.data.model
 
 import androidx.room.ColumnInfo
-import androidx.room.Embedded
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
@@ -9,21 +8,21 @@ import androidx.room.PrimaryKey
 import java.util.UUID
 
 @Entity(
-    tableName = "items",
+    tableName = "sub_items",
     foreignKeys = [
         ForeignKey(
-            entity = Entry::class,
-            parentColumns = ["entry_id"],
-            childColumns = ["entry_id"],
+            entity = Item::class,
+            parentColumns = ["item_id"],
+            childColumns = ["item_id"],
             onDelete = ForeignKey.CASCADE
         )
     ],
-    indices = [Index(value = ["entry_id"])]
+    indices = [Index(value = ["item_id"])]
 )
-data class Item(
-    @PrimaryKey(autoGenerate = true) val item_id: Int = 0,
-    val entry_id: Int,
-    val item_name: String,
+data class SubItem(
+    @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    val item_id: Int,
+    val name: String,
     val quantity: Int,
     val notes: String? = null,
     val is_checked: Int = 0,
@@ -31,12 +30,5 @@ data class Item(
     val sync_id: String = UUID.randomUUID().toString(),
     @ColumnInfo(defaultValue = "0")
     val last_updated: Long = System.currentTimeMillis(),
-    val image_path: String? = null,
-    @ColumnInfo(defaultValue = "0")
-    val is_container: Boolean = false
-)
-
-data class ItemWithCount(
-    @Embedded val item: Item,
-    val subSubItemCount: Int
+    val image_path: String? = null
 )

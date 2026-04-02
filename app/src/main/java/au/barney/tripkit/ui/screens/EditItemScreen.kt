@@ -72,14 +72,15 @@ fun EditItemScreen(
                         nameInitial = currentItem.item_name,
                         quantityInitial = currentItem.quantity,
                         notesInitial = currentItem.notes ?: "",
+                        isContainerInitial = currentItem.is_container,
                         imagePathInitial = currentItem.image_path,
-                        onSave = { name, quantity, notes, imagePath ->
+                        onSave = { name, quantity, notes, isContainer, imagePath ->
                             viewModel.updateItem(
                                 itemId = itemId,
                                 name = name,
                                 quantity = quantity,
                                 notes = notes,
-                                isContainer = currentItem.is_container,
+                                isContainer = isContainer,
                                 imagePath = imagePath
                             )
                             onBack()
@@ -97,12 +98,14 @@ private fun EditItemForm(
     nameInitial: String,
     quantityInitial: Int,
     notesInitial: String,
+    isContainerInitial: Boolean,
     imagePathInitial: String?,
-    onSave: (String, Int, String?, String?) -> Unit
+    onSave: (String, Int, String?, Boolean, String?) -> Unit
 ) {
     var name by remember(itemId) { mutableStateOf(nameInitial) }
     var quantity by remember(itemId) { mutableStateOf(quantityInitial.toString()) }
     var notes by remember(itemId) { mutableStateOf(notesInitial) }
+    var isContainer by remember(itemId) { mutableStateOf(isContainerInitial) }
     var imagePath by remember(itemId) { mutableStateOf(imagePathInitial) }
 
     LazyColumn(
@@ -119,12 +122,14 @@ private fun EditItemForm(
         }
 
         item {
-            OutlinedTextField(
-                value = quantity,
-                onValueChange = { quantity = it.filter { c -> c.isDigit() } },
-                label = { Text("Quantity") },
-                modifier = Modifier.fillMaxWidth()
-            )
+            if (!isContainer) {
+                OutlinedTextField(
+                    value = quantity,
+                    onValueChange = { quantity = it.filter { c -> c.isDigit() } },
+                    label = { Text("Quantity") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
         }
 
         item {
@@ -137,6 +142,17 @@ private fun EditItemForm(
         }
 
         item {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Checkbox(
+                    checked = isContainer,
+                    onCheckedChange = { isContainer = it },
+                    enabled = !isContainerInitial // Cannot change back to single item if already a container
+                )
+                Text("Is this a sub-container?")
+            }
+        }
+
+        item {
             ImagePicker(
                 currentImagePath = imagePath,
                 onImageSelected = { imagePath = it }
@@ -146,8 +162,8 @@ private fun EditItemForm(
         item {
             Button(
                 onClick = {
-                    val qty = quantity.toIntOrNull() ?: 1
-                    onSave(name, qty, notes, imagePath)
+                    val qty = if (isContainer) 0 else (quantity.toIntOrNull() ?: 1)
+                    onSave(name, qty, notes, isContainer, imagePath)
                 },
                 modifier = Modifier.fillMaxWidth()
             ) {

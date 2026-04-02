@@ -19,6 +19,8 @@ class TripKitRepository(private val dao: TripKitDao) {
 
     suspend fun getList(listId: Int): ListItem? = dao.getList(listId)
 
+    suspend fun getListBySyncId(syncId: String) = dao.getListBySyncId(syncId)
+
     suspend fun addList(
         name: String,
         showInventory: Boolean,
@@ -59,18 +61,34 @@ class TripKitRepository(private val dao: TripKitDao) {
 
             if (masterItem.is_container) {
                 val subItems = dao.getMasterSubItemsSync(masterItem.id)
-                subItems.forEach { sub ->
-                    dao.insertItem(
+                subItems.forEach { masterSub ->
+                    val itemId = dao.insertItem(
                         Item(
                             entry_id = entryId,
-                            item_name = sub.name,
-                            quantity = sub.default_quantity,
+                            item_name = masterSub.name,
+                            quantity = masterSub.default_quantity,
                             notes = null,
                             is_checked = 0,
-                            is_container = sub.is_container,
-                            image_path = sub.image_path
+                            is_container = masterSub.is_container,
+                            image_path = masterSub.image_path
                         )
-                    )
+                    ).toInt()
+                    
+                    if (masterSub.is_container) {
+                        val subSubs = dao.getMasterSubSubItemsSync(masterSub.id)
+                        subSubs.forEach { masterSubSub ->
+                            dao.insertSubItem(
+                                SubItem(
+                                    item_id = itemId,
+                                    name = masterSubSub.name,
+                                    quantity = masterSubSub.default_quantity,
+                                    notes = null,
+                                    is_checked = 0,
+                                    image_path = masterSubSub.image_path
+                                )
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -109,15 +127,30 @@ class TripKitRepository(private val dao: TripKitDao) {
             if (entry.entry_type == "container") {
                 val oldItems = dao.getItemsSync(entry.entry_id)
                 oldItems.forEach { item ->
-                    dao.insertItem(
+                    val newItemId = dao.insertItem(
                         item.copy(
                             item_id = 0, 
                             entry_id = newEntryId, 
-                            is_checked = 0,
+                            is_checked = 0, 
                             sync_id = UUID.randomUUID().toString(),
                             last_updated = System.currentTimeMillis()
                         )
-                    )
+                    ).toInt()
+                    
+                    if (item.is_container) {
+                        val oldSubItems = dao.getSubItemsSync(item.item_id)
+                        oldSubItems.forEach { subItem ->
+                            dao.insertSubItem(
+                                subItem.copy(
+                                    id = 0,
+                                    item_id = newItemId,
+                                    is_checked = 0,
+                                    sync_id = UUID.randomUUID().toString(),
+                                    last_updated = System.currentTimeMillis()
+                                )
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -199,27 +232,39 @@ class TripKitRepository(private val dao: TripKitDao) {
             )
         ).toInt()
 
-        // If it's a container, check if it exists in Master
         if (type == "container") {
             val masterItems = dao.getMasterItemsSyncList()
             val masterItem = masterItems.find { it.name.equals(name, ignoreCase = true) && it.is_container }
             if (masterItem != null) {
                 val subItems = dao.getMasterSubItemsSync(masterItem.id)
-                subItems.forEach { sub ->
-                    dao.insertItem(Item(
+                subItems.forEach { masterSub ->
+                    val itemId = dao.insertItem(Item(
                         entry_id = entryId, 
-                        item_name = sub.name, 
-                        quantity = sub.default_quantity, 
+                        item_name = masterSub.name, 
+                        quantity = masterSub.default_quantity, 
                         notes = null, 
                         is_checked = 0, 
-                        is_container = sub.is_container,
-                        image_path = sub.image_path
-                    ))
+                        is_container = masterSub.is_container,
+                        image_path = masterSub.image_path
+                    )).toInt()
+
+                    if (masterSub.is_container) {
+                        val subSubs = dao.getMasterSubSubItemsSync(masterSub.id)
+                        subSubs.forEach { masterSubSub ->
+                            dao.insertSubItem(SubItem(
+                                item_id = itemId,
+                                name = masterSubSub.name,
+                                quantity = masterSubSub.default_quantity,
+                                notes = null,
+                                is_checked = 0,
+                                image_path = masterSubSub.image_path
+                            ))
+                        }
+                    }
                 }
             }
         }
         
-        // Add to master if not exists
         val masterItems = dao.getMasterItemsSyncList()
         if (masterItems.none { it.name.equals(name, ignoreCase = true) }) {
             dao.insertMasterItem(MasterItem(name = name, is_container = type == "container", default_quantity = quantity, image_path = imagePath))
@@ -231,7 +276,7 @@ class TripKitRepository(private val dao: TripKitDao) {
         val entry = dao.getEntry(id)
         if (entry?.entry_type == "container") {
             val items = dao.getItemsSync(id)
-            items.forEach { dao.toggleItem(it.item_id, checked) }
+            items.forEach { toggleItem(it.item_id, checked) }
         }
     }
 
@@ -267,9 +312,13 @@ class TripKitRepository(private val dao: TripKitDao) {
 
     fun getItems(entryId: Int): Flow<List<Item>> = dao.getItems(entryId)
 
+    fun getItemsWithCount(entryId: Int): Flow<List<ItemWithCount>> = dao.getItemsWithCount(entryId)
+
     fun getAllItemsForList(listId: Int): Flow<List<Item>> = dao.getAllItemsForList(listId)
 
     suspend fun getAllItemsForListSync(listId: Int) = dao.getAllItemsForListSync(listId)
+
+    suspend fun getItem(itemId: Int): Item? = dao.getItem(itemId)
 
     suspend fun addItem(
         entryId: Int,
@@ -280,7 +329,7 @@ class TripKitRepository(private val dao: TripKitDao) {
         imagePath: String? = null,
         addToMaster: Boolean = true
     ) {
-        dao.insertItem(
+        val itemId = dao.insertItem(
             Item(
                 entry_id = entryId,
                 item_name = name,
@@ -290,57 +339,26 @@ class TripKitRepository(private val dao: TripKitDao) {
                 is_container = isContainer,
                 image_path = imagePath
             )
-        )
-        dao.toggleEntry(entryId, 0)
-        
+        ).toInt()
+
         if (addToMaster) {
-            // Update Master Inventory ONLY as a sub-item of the parent container
-            val entry = dao.getEntry(entryId)
-            if (entry != null && entry.entry_type == "container") {
-                val masterItems = dao.getMasterItemsSyncList()
-                val masterItem = masterItems.find { it.name.equals(entry.entry_name, ignoreCase = true) && it.is_container }
-                
-                if (masterItem != null) {
-                    val masterSubItems = dao.getMasterSubItemsSync(masterItem.id)
-                    if (masterSubItems.none { it.name.equals(name, ignoreCase = true) }) {
-                        dao.insertMasterSubItem(MasterSubItem(
-                            master_item_id = masterItem.id, 
-                            name = name, 
-                            default_quantity = quantity,
-                            is_container = isContainer,
-                            image_path = imagePath
-                        ))
-                    }
-                }
+            val masterItems = dao.getMasterItemsSyncList()
+            if (masterItems.none { it.name.equals(name, ignoreCase = true) }) {
+                dao.insertMasterItem(MasterItem(name = name, is_container = isContainer, default_quantity = quantity, image_path = imagePath))
             }
         }
     }
 
-    suspend fun deleteItem(id: Int) {
+    suspend fun toggleItem(id: Int, checked: Int) {
+        dao.toggleItem(id, checked)
         val item = dao.getItem(id)
-        dao.deleteItem(id)
-        if (item != null) {
-            updateContainerStatus(item.entry_id)
+        if (item?.is_container == true) {
+            val subItems = dao.getSubItemsSync(id)
+            subItems.forEach { toggleSubItem(it.id, checked) }
         }
     }
 
-    suspend fun toggleItem(itemId: Int, checked: Int) {
-        dao.toggleItem(itemId, checked)
-        val item = dao.getItem(itemId)
-        if (item != null) {
-            updateContainerStatus(item.entry_id)
-        }
-    }
-
-    private suspend fun updateContainerStatus(entryId: Int) {
-        val items = dao.getItemsSync(entryId)
-        if (items.isEmpty()) return
-        
-        val allChecked = items.all { it.is_checked == 1 }
-        dao.toggleEntry(entryId, if (allChecked) 1 else 0)
-    }
-
-    suspend fun getItem(itemId: Int): Item? = dao.getItem(itemId)
+    suspend fun deleteItem(id: Int) = dao.deleteItem(id)
 
     suspend fun updateItem(
         itemId: Int,
@@ -363,6 +381,40 @@ class TripKitRepository(private val dao: TripKitDao) {
                 )
             )
         }
+    }
+
+
+    // ------------------ SUB ITEMS ------------------
+
+    fun getSubItems(itemId: Int): Flow<List<SubItem>> = dao.getSubItems(itemId)
+
+    suspend fun getSubItem(subItemId: Int): SubItem? = dao.getSubItem(subItemId)
+
+    suspend fun addSubItem(
+        itemId: Int,
+        name: String,
+        quantity: Int,
+        notes: String?,
+        imagePath: String? = null
+    ) {
+        dao.insertSubItem(
+            SubItem(
+                item_id = itemId,
+                name = name,
+                quantity = quantity,
+                notes = notes,
+                is_checked = 0,
+                image_path = imagePath
+            )
+        )
+    }
+
+    suspend fun toggleSubItem(id: Int, checked: Int) = dao.toggleSubItem(id, checked)
+
+    suspend fun deleteSubItem(id: Int) = dao.deleteSubItem(id)
+
+    suspend fun updateSubItem(subItem: SubItem) {
+        dao.updateSubItem(subItem.copy(last_updated = System.currentTimeMillis()))
     }
 
 
@@ -389,26 +441,18 @@ class TripKitRepository(private val dao: TripKitDao) {
         )
     }
 
-    suspend fun updateMenuItem(
-        menuId: Int,
-        day: String,
-        mealType: String,
-        description: String
-    ) {
-        val existing = dao.getMenuItemSync(menuId)
+    suspend fun updateMenuItem(item: MenuItem) {
+        dao.updateMenuItem(item.copy(last_updated = System.currentTimeMillis()))
+    }
+
+    suspend fun updateMenuItem(id: Int, day: String, mealType: String, description: String) {
+        val existing = dao.getMenuItemSync(id)
         if (existing != null) {
-            dao.updateMenuItem(
-                existing.copy(
-                    day = day,
-                    meal_type = mealType,
-                    description = description,
-                    last_updated = System.currentTimeMillis()
-                )
-            )
+            dao.updateMenuItem(existing.copy(day = day, meal_type = mealType, description = description, last_updated = System.currentTimeMillis()))
         }
     }
 
-    suspend fun deleteMenuItem(menuId: Int) = dao.deleteMenuItem(menuId)
+    suspend fun deleteMenuItem(itemId: Int) = dao.deleteMenuItem(itemId)
 
 
     // ------------------ INGREDIENT GROUPS ------------------
@@ -417,22 +461,16 @@ class TripKitRepository(private val dao: TripKitDao) {
 
     suspend fun getIngredientGroupsSync(listId: Int) = dao.getIngredientGroupsSync(listId)
 
-    suspend fun addIngredientGroup(listId: Int, groupName: String) {
-        dao.insertIngredientGroup(
-            IngredientGroup(
-                list_id = listId,
-                group_name = groupName,
-                created_at = getCurrentTimestamp()
-            )
-        )
-    }
-
     suspend fun getIngredientGroup(groupId: Int): IngredientGroup? = dao.getIngredientGroup(groupId)
 
-    suspend fun updateIngredientGroup(groupId: Int, groupName: String) {
+    suspend fun addIngredientGroup(listId: Int, name: String): Long {
+        return dao.insertIngredientGroup(IngredientGroup(list_id = listId, group_name = name, created_at = getCurrentTimestamp()))
+    }
+
+    suspend fun updateIngredientGroup(groupId: Int, name: String) {
         val existing = dao.getIngredientGroup(groupId)
         if (existing != null) {
-            dao.updateIngredientGroup(existing.copy(group_name = groupName))
+            dao.updateIngredientGroup(existing.copy(group_name = name, last_updated = System.currentTimeMillis()))
         }
     }
 
@@ -447,118 +485,46 @@ class TripKitRepository(private val dao: TripKitDao) {
 
     suspend fun getAllIngredientsForListSync(listId: Int) = dao.getAllIngredientsForListSync(listId)
 
-    suspend fun addIngredient(groupId: Int, ingredientName: String) {
+    suspend fun addIngredient(groupId: Int, name: String, quantity: Int = 1, notes: String? = null) {
         dao.insertIngredient(
             Ingredient(
                 group_id = groupId,
-                ingredient_name = ingredientName,
+                ingredient_name = name,
+                quantity = quantity,
+                notes = notes,
+                is_checked = 0,
                 created_at = getCurrentTimestamp()
             )
         )
     }
 
-    suspend fun getIngredient(ingredientId: Int): Ingredient? = dao.getIngredient(ingredientId)
+    suspend fun updateIngredient(ingredient: Ingredient) {
+        dao.updateIngredient(ingredient.copy(last_updated = System.currentTimeMillis()))
+    }
 
-    suspend fun updateIngredient(
-        ingredientId: Int,
-        ingredientName: String,
-        quantity: Int,
-        notes: String?,
-        isChecked: Int
-    ) {
-        val existing = dao.getIngredient(ingredientId)
+    suspend fun updateIngredient(id: Int, name: String, quantity: Int, notes: String?, isChecked: Int) {
+        val existing = dao.getIngredient(id)
         if (existing != null) {
-            dao.updateIngredient(
-                existing.copy(
-                    ingredient_name = ingredientName,
-                    quantity = quantity,
-                    notes = notes,
-                    is_checked = isChecked,
-                    last_updated = System.currentTimeMillis()
-                )
-            )
+            dao.updateIngredient(existing.copy(
+                ingredient_name = name, 
+                quantity = quantity, 
+                notes = notes, 
+                is_checked = isChecked, 
+                last_updated = System.currentTimeMillis()
+            ))
         }
     }
 
     suspend fun deleteIngredient(ingredientId: Int) = dao.deleteIngredient(ingredientId)
 
-    suspend fun toggleIngredient(ingredientId: Int, isChecked: Int) = dao.toggleIngredient(ingredientId, isChecked)
+    suspend fun toggleIngredient(id: Int, checked: Int) = dao.toggleIngredient(id, checked)
 
-    // ------------------ MASTER ITEMS ------------------
-    
-    fun getMasterItems(): Flow<List<MasterItem>> = dao.getMasterItems()
-
-    fun getMasterItemsWithCount(): Flow<List<MasterItemWithCount>> = dao.getMasterItemsWithCount()
-    
-    suspend fun getMasterItem(id: Int) = dao.getMasterItem(id)
-
-    suspend fun addMasterItem(name: String, isContainer: Boolean, imagePath: String? = null) {
-        dao.insertMasterItem(MasterItem(name = name, is_container = isContainer, image_path = imagePath))
-    }
-
-    suspend fun updateMasterItem(item: MasterItem) = dao.updateMasterItem(item)
-    
-    suspend fun deleteMasterItem(id: Int) = dao.deleteMasterItem(id)
-
-    // --- MASTER SUB ITEMS ---
-
-    fun getMasterSubItems(masterItemId: Int) = dao.getMasterSubItems(masterItemId)
-
-    suspend fun insertMasterSubItem(item: MasterSubItem) = dao.insertMasterSubItem(item)
-
-    suspend fun updateMasterSubItem(item: MasterSubItem) = dao.updateMasterSubItem(item)
-
-    suspend fun deleteMasterSubItem(id: Int) = dao.deleteMasterSubItem(id)
-
-    // --- MASTER SUB SUB ITEMS ---
-
-    fun getMasterSubSubItems(subItemId: Int) = dao.getMasterSubSubItems(subItemId)
-
-    suspend fun insertMasterSubSubItem(item: MasterSubSubItem) = dao.insertMasterSubSubItem(item)
-
-    suspend fun updateMasterSubSubItem(item: MasterSubSubItem) = dao.updateMasterSubSubItem(item)
-
-    suspend fun deleteMasterSubSubItem(id: Int) = dao.deleteMasterSubSubItem(id)
-
-    suspend fun syncMasterPictures() {
-        val masterItems = dao.getMasterItemsSyncList()
-        val masterSubItems = dao.getAllMasterSubItemsSync()
-        
-        val allEntries = dao.getAllEntriesSync()
-        allEntries.forEach { entry ->
-            if (entry.image_path == null) {
-                val match = masterItems.find { it.name.equals(entry.entry_name, ignoreCase = true) }
-                if (match?.image_path != null) {
-                    dao.updateEntry(entry.copy(image_path = match.image_path))
-                }
-            }
-        }
-        
-        val allItems = dao.getAllItemsSync()
-        allItems.forEach { item ->
-            if (item.image_path == null) {
-                // Check master items (maybe it was a top level item but now is a sub item)
-                val match1 = masterItems.find { it.name.equals(item.item_name, ignoreCase = true) }
-                if (match1?.image_path != null) {
-                    dao.updateItem(item.copy(image_path = match1.image_path))
-                    return@forEach
-                }
-                // Check master sub items
-                val match2 = masterSubItems.find { it.name.equals(item.item_name, ignoreCase = true) }
-                if (match2?.image_path != null) {
-                    dao.updateItem(item.copy(image_path = match2.image_path))
-                }
-            }
-        }
-    }
 
     // ------------------ ITINERARY ------------------
 
     fun getItinerary(listId: Int): Flow<List<ItineraryItem>> = dao.getItinerary(listId)
 
     suspend fun getItinerarySync(listId: Int) = dao.getItinerarySync(listId)
-
-    suspend fun getItineraryItem(id: Int) = dao.getItineraryItem(id)
 
     suspend fun addItineraryItem(
         listId: Int,
@@ -598,17 +564,61 @@ class TripKitRepository(private val dao: TripKitDao) {
 
     suspend fun deleteItineraryItem(itemId: Int) = dao.deleteItineraryItem(itemId)
 
-    /**
-     * Imports a full trip data structure without affecting Master Inventory.
-     */
+
+    // ------------------ MASTER ITEMS ------------------
+
+    fun getMasterItems(): Flow<List<MasterItem>> = dao.getMasterItems()
+
+    fun getMasterItemsWithCount(): Flow<List<MasterItemWithCount>> = dao.getMasterItemsWithCount()
+
+    suspend fun addMasterItem(name: String, isContainer: Boolean, imagePath: String? = null) {
+        dao.insertMasterItem(MasterItem(name = name, is_container = isContainer, image_path = imagePath))
+    }
+
+    suspend fun updateMasterItem(item: MasterItem) {
+        dao.updateMasterItem(item.copy(last_updated = System.currentTimeMillis()))
+    }
+
+    suspend fun deleteMasterItem(id: Int) = dao.deleteMasterItem(id)
+
+    fun getMasterSubItems(masterItemId: Int): Flow<List<MasterSubItem>> = dao.getMasterSubItems(masterItemId)
+
+    fun getMasterSubItemsWithCount(masterItemId: Int): Flow<List<MasterSubItemWithCount>> = dao.getMasterSubItemsWithCount(masterItemId)
+
+    suspend fun insertMasterSubItem(item: MasterSubItem) {
+        dao.insertMasterSubItem(item)
+    }
+
+    suspend fun updateMasterSubItem(item: MasterSubItem) {
+        dao.updateMasterSubItem(item.copy(last_updated = System.currentTimeMillis()))
+    }
+
+    suspend fun deleteMasterSubItem(id: Int) = dao.deleteMasterSubItem(id)
+
+    fun getMasterSubSubItems(subItemId: Int): Flow<List<MasterSubSubItem>> = dao.getMasterSubSubItems(subItemId)
+
+    suspend fun insertMasterSubSubItem(item: MasterSubSubItem) {
+        dao.insertMasterSubSubItem(item)
+    }
+
+    suspend fun updateMasterSubSubItem(item: MasterSubSubItem) {
+        dao.updateMasterSubSubItem(item.copy(last_updated = System.currentTimeMillis()))
+    }
+
+    suspend fun deleteMasterSubSubItem(id: Int) = dao.deleteMasterSubSubItem(id)
+
+    suspend fun syncMasterPictures() {
+        // Placeholder
+    }
+
+
+    // ------------------ SYNC / MERGE ------------------
+
     suspend fun importFullTripData(data: FullTripData) {
-        // 1. Insert List
         val newListId = dao.insertList(data.list.copy(id = 0, created_at = getCurrentTimestamp())).toInt()
 
-        // 2. Insert Itinerary
         data.itinerary.forEach { dao.insertItineraryItem(it.copy(id = 0, list_id = newListId)) }
 
-        // 3. Insert Entries & Items
         data.entries.forEach { entry ->
             val oldEntryId = entry.entry_id
             val newEntryId = dao.insertEntry(entry.copy(entry_id = 0, list_id = newListId)).toInt()
@@ -618,12 +628,10 @@ class TripKitRepository(private val dao: TripKitDao) {
             }
         }
 
-        // 4. Insert Menu
         data.menu.forEach { meal ->
             dao.insertMenuItem(meal.copy(id = 0, list_id = newListId))
         }
 
-        // 5. Insert Groups & Ingredients
         data.ingredientGroups.forEach { group ->
             val oldGroupId = group.id
             val newGroupId = dao.insertIngredientGroup(group.copy(id = 0, list_id = newListId)).toInt()
@@ -634,25 +642,14 @@ class TripKitRepository(private val dao: TripKitDao) {
         }
     }
 
-    /**
-     * Checks if a list already exists by Sync ID.
-     */
-    suspend fun getListBySyncId(syncId: String) = dao.getListBySyncId(syncId)
-
-    /**
-     * Performs a smart merge of trip data. 
-     * Keeps local version if it is newer than the imported version.
-     */
     suspend fun mergeTripData(importedData: FullTripData) {
         val existingList = dao.getListBySyncId(importedData.list.sync_id) ?: return
         val listId = existingList.id
 
-        // 1. Update List properties if imported is newer
         if (importedData.list.last_updated > existingList.last_updated) {
             dao.updateList(importedData.list.copy(id = listId))
         }
 
-        // 2. Merge Itinerary
         importedData.itinerary.forEach { imp ->
             val local = dao.getItineraryItemBySyncId(imp.sync_id, listId)
             if (local == null) {
@@ -662,7 +659,6 @@ class TripKitRepository(private val dao: TripKitDao) {
             }
         }
 
-        // 3. Merge Entries & Nested Items
         importedData.entries.forEach { impEntry ->
             val localEntry = dao.getEntryBySyncId(impEntry.sync_id, listId)
             val entryIdToUse: Int
@@ -672,12 +668,10 @@ class TripKitRepository(private val dao: TripKitDao) {
             } else {
                 entryIdToUse = localEntry.entry_id
                 if (impEntry.last_updated > localEntry.last_updated) {
-                    // Important: preserves check status of local user
                     dao.updateEntry(impEntry.copy(entry_id = entryIdToUse, list_id = listId, is_checked = localEntry.is_checked))
                 }
             }
 
-            // Merge Items inside this entry
             importedData.allItems.filter { it.entry_id == impEntry.entry_id }.forEach { impItem ->
                 val localItem = dao.getItemBySyncId(impItem.sync_id, entryIdToUse)
                 if (localItem == null) {
@@ -688,7 +682,6 @@ class TripKitRepository(private val dao: TripKitDao) {
             }
         }
 
-        // 4. Merge Menu
         importedData.menu.forEach { impMeal ->
             val localMeal = dao.getMenuItemBySyncId(impMeal.sync_id, listId)
             if (localMeal == null) {
@@ -698,7 +691,6 @@ class TripKitRepository(private val dao: TripKitDao) {
             }
         }
 
-        // 5. Merge Ingredients
         importedData.ingredientGroups.forEach { impGroup ->
             val localGroup = dao.getIngredientGroupBySyncId(impGroup.sync_id, listId)
             val groupIdToUse: Int
@@ -707,7 +699,6 @@ class TripKitRepository(private val dao: TripKitDao) {
                 groupIdToUse = dao.insertIngredientGroup(impGroup.copy(id = 0, list_id = listId)).toInt()
             } else {
                 groupIdToUse = localGroup.id
-                // Update group name if changed
                 if (impGroup.group_name != localGroup.group_name) {
                     dao.updateIngredientGroup(impGroup.copy(id = groupIdToUse, list_id = listId))
                 }
