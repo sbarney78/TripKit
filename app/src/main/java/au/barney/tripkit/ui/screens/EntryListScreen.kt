@@ -21,6 +21,7 @@ import au.barney.tripkit.ui.viewmodel.EntryViewModel
 import au.barney.tripkit.ui.viewmodel.ItemViewModel
 import au.barney.tripkit.ui.viewmodel.MasterItemViewModel
 import au.barney.tripkit.util.PdfGenerator
+import au.barney.tripkit.ui.components.DraggableFAB
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -90,7 +91,7 @@ fun EntryListScreen(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = onAddEntry) {
+            DraggableFAB(onClick = onAddEntry) {
                 Text("+", style = MaterialTheme.typography.headlineSmall)
             }
         }

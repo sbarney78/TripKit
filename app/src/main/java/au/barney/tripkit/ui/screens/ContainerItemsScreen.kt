@@ -19,6 +19,7 @@ import au.barney.tripkit.data.model.Item
 import au.barney.tripkit.ui.viewmodel.ItemViewModel
 import au.barney.tripkit.ui.viewmodel.MasterItemViewModel
 import au.barney.tripkit.ui.viewmodel.EntryViewModel
+import au.barney.tripkit.ui.components.DraggableFAB
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -72,7 +73,7 @@ fun ContainerItemsScreen(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = onAddItem) {
+            DraggableFAB(onClick = onAddItem) {
                 Text("+", style = MaterialTheme.typography.headlineSmall)
             }
         }

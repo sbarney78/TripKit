@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import au.barney.tripkit.data.model.ItineraryItem
 import au.barney.tripkit.ui.viewmodel.ItineraryViewModel
 import au.barney.tripkit.util.PdfGenerator
+import au.barney.tripkit.ui.components.DraggableFAB
 import java.text.SimpleDateFormat
 import java.util.*
 import java.util.concurrent.TimeUnit
@@ -111,7 +112,7 @@ fun ItineraryScreen(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = { showAddDialog = true }) {
+            DraggableFAB(onClick = { showAddDialog = true }) {
                 Text("+", style = MaterialTheme.typography.headlineSmall)
             }
         }
@@ -146,10 +147,13 @@ fun ItineraryScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             grouped.forEach { (dayHeader, activities) ->
-                item {
+                item(key = "day_$dayHeader") {
                     Text(dayHeader, style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                 }
-                items(activities) { item ->
+                items(
+                    items = activities,
+                    key = { it.id }
+                ) { item ->
                     ItineraryCard(
                         item = item,
                         onEdit = { 

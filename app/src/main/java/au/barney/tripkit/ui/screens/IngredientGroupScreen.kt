@@ -21,6 +21,7 @@ import au.barney.tripkit.data.model.IngredientGroup
 import au.barney.tripkit.ui.viewmodel.IngredientGroupViewModel
 import au.barney.tripkit.ui.viewmodel.IngredientViewModel
 import au.barney.tripkit.util.PdfGenerator
+import au.barney.tripkit.ui.components.DraggableFAB
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -164,12 +165,14 @@ fun IngredientGroupScreen(
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    actionIconContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    navigationIconContentColor = MaterialTheme.colorScheme.onPrimaryContainer
                 )
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = {
+            DraggableFAB(onClick = {
                 newGroupName = ""
                 showAddDialog = true
             }) { Text("+", style = MaterialTheme.typography.headlineSmall) }
@@ -196,7 +199,10 @@ fun IngredientGroupScreen(
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    items(groups) { group ->
+                    items(
+                        items = groups,
+                        key = { it.id }
+                    ) { group ->
                         IngredientGroupRow(
                             group = group,
                             onOpen = { onOpenGroup(group.id) },

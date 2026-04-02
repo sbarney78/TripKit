@@ -17,6 +17,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import au.barney.tripkit.data.model.Ingredient
 import au.barney.tripkit.ui.viewmodel.IngredientViewModel
+import au.barney.tripkit.ui.components.DraggableFAB
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -160,7 +161,7 @@ fun IngredientScreen(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = {
+            DraggableFAB(onClick = {
                 newIngredientName = ""
                 showAddDialog = true
             }) { Text("+", style = MaterialTheme.typography.headlineSmall) }
@@ -187,7 +188,10 @@ fun IngredientScreen(
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    items(ingredients) { ingredient ->
+                    items(
+                        items = ingredients,
+                        key = { it.id }
+                    ) { ingredient ->
                         IngredientItemRow(
                             ingredient = ingredient,
                             onToggle = { checked ->
@@ -200,6 +204,7 @@ fun IngredientScreen(
                             },
                             onDelete = {
                                 deleteIngredientId = ingredient.id
+                                showAddDialog = false
                                 showDeleteDialog = true
                             }
                         )

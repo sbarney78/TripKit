@@ -21,6 +21,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import au.barney.tripkit.data.model.SubItem
 import au.barney.tripkit.ui.viewmodel.ItemViewModel
+import au.barney.tripkit.ui.components.DraggableFAB
 import coil.compose.AsyncImage
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -152,7 +153,7 @@ fun SubContainerItemsScreen(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = { showAddDialog = true }) {
+            DraggableFAB(onClick = { showAddDialog = true }) {
                 Text("+", style = MaterialTheme.typography.headlineSmall)
             }
         }

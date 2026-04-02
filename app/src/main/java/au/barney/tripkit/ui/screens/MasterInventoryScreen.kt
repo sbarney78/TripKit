@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import au.barney.tripkit.data.model.MasterItem
 import au.barney.tripkit.data.model.MasterItemWithCount
 import au.barney.tripkit.ui.viewmodel.MasterItemViewModel
+import au.barney.tripkit.ui.components.DraggableFAB
 import coil.compose.AsyncImage
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -164,7 +165,7 @@ fun MasterInventoryScreen(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = { showAddDialog = true }) {
+            DraggableFAB(onClick = { showAddDialog = true }) {
                 Text("+", style = MaterialTheme.typography.headlineSmall)
             }
         }

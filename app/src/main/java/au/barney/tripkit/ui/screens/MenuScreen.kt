@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.dp
 import au.barney.tripkit.data.model.MenuItem
 import au.barney.tripkit.ui.viewmodel.MenuViewModel
 import au.barney.tripkit.util.PdfGenerator
+import au.barney.tripkit.ui.components.DraggableFAB
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -67,7 +68,7 @@ fun MenuScreen(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = onAddMeal) {
+            DraggableFAB(onClick = onAddMeal) {
                 Text("+", style = MaterialTheme.typography.headlineSmall)
             }
         }
@@ -99,7 +100,7 @@ fun MenuScreen(
 
                         groupedByDay.forEach { (day, itemsForDay) ->
 
-                            item {
+                            item(key = "day_$day") {
                                 Text(
                                     text = day,
                                     style = MaterialTheme.typography.titleLarge,
@@ -109,7 +110,10 @@ fun MenuScreen(
                                 Spacer(Modifier.height(8.dp))
                             }
 
-                            items(itemsForDay) { item ->
+                            items(
+                                items = itemsForDay,
+                                key = { it.id }
+                            ) { item ->
                                 MealCard(
                                     item = item,
                                     onDelete = {

@@ -9,6 +9,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import au.barney.tripkit.ui.viewmodel.ListViewModel
+import au.barney.tripkit.ui.components.DraggableFAB
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -33,7 +34,7 @@ fun ListScreen(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = {
+            DraggableFAB(onClick = {
                 viewModel.addList("New List")
             }) {
                 Text("+")

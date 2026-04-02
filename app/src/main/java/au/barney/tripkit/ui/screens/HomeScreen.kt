@@ -23,6 +23,7 @@ import au.barney.tripkit.ui.viewmodel.*
 import au.barney.tripkit.util.BackupManager
 import au.barney.tripkit.util.DataSharingManager
 import au.barney.tripkit.util.PdfGenerator
+import au.barney.tripkit.ui.components.DraggableFAB
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
@@ -173,12 +174,14 @@ fun HomeScreen(
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    actionIconContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    navigationIconContentColor = MaterialTheme.colorScheme.onPrimaryContainer
                 )
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = { showAddDialog = true }) {
+            DraggableFAB(onClick = { showAddDialog = true }) {
                 Text("+", style = MaterialTheme.typography.headlineSmall)
             }
         }
@@ -192,7 +195,10 @@ fun HomeScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
 
-            items(lists) { list ->
+            items(
+                items = lists,
+                key = { it.id }
+            ) { list ->
                 val listProgress = progress[list.id] ?: Pair(0, 0)
 
                 Card(
