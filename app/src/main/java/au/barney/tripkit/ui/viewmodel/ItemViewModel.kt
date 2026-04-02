@@ -65,12 +65,12 @@ class ItemViewModel(
 
     // ------------------ ADD ITEM ------------------
 
-    fun addItem(name: String, quantity: Int, notes: String?) {
+    fun addItem(name: String, quantity: Int, notes: String?, isContainer: Boolean, imagePath: String? = null, addToMaster: Boolean = true) {
         if (currentEntryId == -1) return
 
         viewModelScope.launch {
             try {
-                repository.addItem(currentEntryId, name, quantity, notes)
+                repository.addItem(currentEntryId, name, quantity, notes, isContainer, imagePath, addToMaster)
             } catch (e: Exception) {
                 _error.value = e.message ?: "Unknown error"
             }
@@ -124,10 +124,10 @@ class ItemViewModel(
 
     // ------------------ UPDATE ITEM ------------------
 
-    fun updateItem(itemId: Int, name: String, quantity: Int, notes: String?) {
+    fun updateItem(itemId: Int, name: String, quantity: Int, notes: String?, isContainer: Boolean, imagePath: String? = null) {
         viewModelScope.launch {
             try {
-                repository.updateItem(itemId, name, quantity, notes)
+                repository.updateItem(itemId, name, quantity, notes, isContainer, imagePath)
             } catch (e: Exception) {
                 _error.value = e.message ?: "Unknown error"
             }

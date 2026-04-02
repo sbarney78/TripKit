@@ -1,5 +1,6 @@
 package au.barney.tripkit.data.model
 
+import androidx.room.ColumnInfo
 import androidx.room.Embedded
 import androidx.room.Entity
 import androidx.room.PrimaryKey
@@ -11,7 +12,9 @@ data class MasterItem(
     val name: String,
     val default_quantity: Int = 1,
     val category: String? = null,
-    val is_container: Boolean = false
+    @ColumnInfo(defaultValue = "0")
+    val is_container: Boolean = false,
+    val image_path: String? = null
 )
 
 /**

@@ -25,6 +25,7 @@ fun AddEntryScreen(
     var quantity by remember { mutableStateOf("1") }
     var notes by remember { mutableStateOf("") }
     var type by remember { mutableStateOf("single") }
+    var imagePath by remember { mutableStateOf<String?>(null) }
 
     val masterItems by masterViewModel.masterItems.collectAsState()
     var showDropdown by remember { mutableStateOf(false) }
@@ -43,7 +44,7 @@ fun AddEntryScreen(
         }
     ) { padding ->
 
-        Column(
+        LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
@@ -51,96 +52,116 @@ fun AddEntryScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
 
-            Column(modifier = Modifier.fillMaxWidth()) {
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { 
-                        name = it
-                        showDropdown = true
-                    },
-                    label = { Text("Name") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-                
-                if (filteredMasterItems.isNotEmpty()) {
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(max = 200.dp),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-                    ) {
-                        LazyColumn {
-                            items(filteredMasterItems) { item ->
-                                DropdownMenuItem(
-                                    text = { Text(item.name) },
-                                    onClick = {
-                                        name = item.name
-                                        type = if (item.is_container) "container" else "single"
-                                        showDropdown = false
-                                    }
-                                )
+            item {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    OutlinedTextField(
+                        value = name,
+                        onValueChange = { 
+                            name = it
+                            showDropdown = true
+                        },
+                        label = { Text("Name") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    
+                    if (filteredMasterItems.isNotEmpty()) {
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(max = 200.dp),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                        ) {
+                            LazyColumn {
+                                items(filteredMasterItems) { item ->
+                                    DropdownMenuItem(
+                                        text = { Text(item.name) },
+                                        onClick = {
+                                            name = item.name
+                                            type = if (item.is_container) "container" else "single"
+                                            imagePath = item.image_path
+                                            showDropdown = false
+                                        }
+                                    )
+                                }
                             }
                         }
                     }
                 }
             }
 
-            OutlinedTextField(
-                value = quantity,
-                onValueChange = { quantity = it },
-                label = { Text("Quantity") },
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            OutlinedTextField(
-                value = notes,
-                onValueChange = { notes = it },
-                label = { Text("Notes (optional)") },
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Text(
-                text = "Type",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
-
-            Row(
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                RadioButton(
-                    selected = type == "single",
-                    onClick = { type = "single" }
+            item {
+                OutlinedTextField(
+                    value = quantity,
+                    onValueChange = { quantity = it },
+                    label = { Text("Quantity") },
+                    modifier = Modifier.fillMaxWidth()
                 )
-                Text("Single Item")
-
-                Spacer(modifier = Modifier.width(20.dp))
-
-                RadioButton(
-                    selected = type == "container",
-                    onClick = { type = "container" }
-                )
-                Text("Container")
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
+            item {
+                OutlinedTextField(
+                    value = notes,
+                    onValueChange = { notes = it },
+                    label = { Text("Notes (optional)") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
 
-            Button(
-                onClick = {
-                    val qty = quantity.toIntOrNull() ?: 1
-                    val exactMatch = masterItems.any { it.name.equals(name, ignoreCase = true) }
+            item {
+                Text(
+                    text = "Type",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+            }
 
-                    if (!exactMatch && name.isNotBlank()) {
-                        showMasterDialog = true
-                    } else {
-                        viewModel.addEntry(listId, name, qty, notes, type)
-                        onDone()
-                    }
-                },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Save")
+            item {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    RadioButton(
+                        selected = type == "single",
+                        onClick = { type = "single" }
+                    )
+                    Text("Single Item")
+
+                    Spacer(modifier = Modifier.width(20.dp))
+
+                    RadioButton(
+                        selected = type == "container",
+                        onClick = { type = "container" }
+                    )
+                    Text("Container")
+                }
+            }
+
+            item {
+                ImagePicker(
+                    currentImagePath = imagePath,
+                    onImageSelected = { imagePath = it }
+                )
+            }
+
+            item {
+                Spacer(modifier = Modifier.height(20.dp))
+
+                Button(
+                    onClick = {
+                        val qty = quantity.toIntOrNull() ?: 1
+                        val exactMatch = masterItems.any { it.name.equals(name, ignoreCase = true) }
+
+                        if (!exactMatch && name.isNotBlank()) {
+                            showMasterDialog = true
+                        } else {
+                            viewModel.addEntry(listId, name, qty, notes, type, imagePath)
+                            onDone()
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Save")
+                }
             }
         }
     }
@@ -152,15 +173,15 @@ fun AddEntryScreen(
             text = { Text("'$name' is not in your Master Inventory. Would you like to add it for future use?") },
             confirmButton = {
                 Button(onClick = {
-                    masterViewModel.addMasterItem(name, type == "container")
-                    viewModel.addEntry(listId, name, quantity.toIntOrNull() ?: 1, notes, type)
+                    masterViewModel.addMasterItem(name, type == "container", imagePath)
+                    viewModel.addEntry(listId, name, quantity.toIntOrNull() ?: 1, notes, type, imagePath)
                     showMasterDialog = false
                     onDone()
                 }) { Text("Add & Save") }
             },
             dismissButton = {
                 TextButton(onClick = {
-                    viewModel.addEntry(listId, name, quantity.toIntOrNull() ?: 1, notes, type)
+                    viewModel.addEntry(listId, name, quantity.toIntOrNull() ?: 1, notes, type, imagePath)
                     showMasterDialog = false
                     onDone()
                 }) { Text("Save Only") }

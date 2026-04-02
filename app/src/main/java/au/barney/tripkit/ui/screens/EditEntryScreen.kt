@@ -1,6 +1,7 @@
 package au.barney.tripkit.ui.screens
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -16,7 +17,7 @@ import androidx.compose.material.icons.filled.ArrowBack
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EditEntryScreen(
-    listId: Int,          // ⭐ added
+    listId: Int,
     entryId: Int,
     viewModel: EntryViewModel,
     onBack: () -> Unit
@@ -55,14 +56,15 @@ fun EditEntryScreen(
 
         EditEntryForm(
             entry = entry!!,
-            onSave = { name, qty, notes, type ->
+            onSave = { name, qty, notes, type, imagePath ->
                 viewModel.updateEntry(
                     entryId = entryId,
                     name = name,
                     quantity = qty,
                     notes = notes,
                     entryType = type,
-                    listId = listId      // ⭐ now passed
+                    listId = listId,
+                    imagePath = imagePath
                 )
                 onBack()
             },
@@ -75,7 +77,7 @@ fun EditEntryScreen(
 @Composable
 fun EditEntryForm(
     entry: Entry,
-    onSave: (String, Int, String, String) -> Unit,
+    onSave: (String, Int, String, String, String?) -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -84,87 +86,104 @@ fun EditEntryForm(
     var qty by remember(entry) { mutableStateOf(entry.quantity.toString()) }
     var notes by remember(entry) { mutableStateOf(entry.notes ?: "") }
     var type by remember(entry) { mutableStateOf(entry.entry_type) }
+    var imagePath by remember(entry) { mutableStateOf(entry.image_path) }
 
     val isContainer = entry.entry_type == "container"
 
-    Column(
+    LazyColumn(
         modifier = modifier
             .fillMaxSize()
             .padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
-
-        OutlinedTextField(
-            value = name,
-            onValueChange = { name = it },
-            label = { Text("Item Name") },
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        OutlinedTextField(
-            value = qty,
-            onValueChange = { qty = it.filter { c -> c.isDigit() } },
-            label = { Text("Quantity") },
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        OutlinedTextField(
-            value = notes,
-            onValueChange = { notes = it },
-            label = { Text("Notes") },
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        Column {
-            Text(
-                "Item Type",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
+        item {
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                label = { Text("Item Name") },
+                modifier = Modifier.fillMaxWidth()
             )
+        }
 
-            if (isContainer) {
+        item {
+            OutlinedTextField(
+                value = qty,
+                onValueChange = { qty = it.filter { c -> c.isDigit() } },
+                label = { Text("Quantity") },
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+
+        item {
+            OutlinedTextField(
+                value = notes,
+                onValueChange = { notes = it },
+                label = { Text("Notes") },
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+
+        item {
+            Column {
                 Text(
-                    "This item is a container and cannot be converted to a single item.",
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodyMedium
+                    "Item Type",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
                 )
-                Spacer(modifier = Modifier.height(8.dp))
-                AssistChip(
-                    onClick = {},
-                    label = { Text("Container") },
-                    enabled = false
-                )
-            } else {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Switch(
-                        checked = type == "container",
-                        onCheckedChange = {
-                            type = if (it) "container" else "single"
-                        }
+
+                if (isContainer) {
+                    Text(
+                        "This item is a container and cannot be converted to a single item.",
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodyMedium
                     )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(if (type == "container") "Container" else "Single Item")
+                    Spacer(modifier = Modifier.height(8.dp))
+                    AssistChip(
+                        onClick = {},
+                        label = { Text("Container") },
+                        enabled = false
+                    )
+                } else {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Switch(
+                            checked = type == "container",
+                            onCheckedChange = {
+                                type = if (it) "container" else "single"
+                            }
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(if (type == "container") "Container" else "Single Item")
+                    }
                 }
             }
         }
 
-        Spacer(modifier = Modifier.height(20.dp))
-
-        Button(
-            onClick = {
-                val qtyInt = qty.toIntOrNull() ?: 1
-                onSave(name, qtyInt, notes, type)
-            },
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text("Save Changes")
+        item {
+            ImagePicker(
+                currentImagePath = imagePath,
+                onImageSelected = { imagePath = it }
+            )
         }
 
-        OutlinedButton(
-            onClick = onBack,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text("Cancel")
+        item {
+            Spacer(modifier = Modifier.height(20.dp))
+
+            Button(
+                onClick = {
+                    val qtyInt = qty.toIntOrNull() ?: 1
+                    onSave(name, qtyInt, notes, type, imagePath)
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Save Changes")
+            }
+
+            OutlinedButton(
+                onClick = onBack,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Cancel")
+            }
         }
     }
 }

@@ -19,24 +19,23 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import au.barney.tripkit.data.model.MasterSubItem
+import au.barney.tripkit.data.model.MasterSubSubItem
 import au.barney.tripkit.ui.viewmodel.MasterItemViewModel
 import coil.compose.AsyncImage
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MasterSubItemsScreen(
-    masterItemId: Int,
+fun MasterSubSubItemsScreen(
+    masterSubItemId: Int,
     viewModel: MasterItemViewModel,
-    onBack: () -> Unit,
-    onOpenSubContainer: (Int) -> Unit = {}
+    onBack: () -> Unit
 ) {
-    val items by viewModel.masterSubItems.collectAsState()
-    val masterItems by viewModel.masterItems.collectAsState()
+    val items by viewModel.masterSubSubItems.collectAsState()
+    val subItems by viewModel.masterSubItems.collectAsState()
     
     // Find the name of the container we are currently in
-    val containerName = remember(masterItemId, masterItems) {
-        masterItems.find { it.id == masterItemId }?.name ?: "Container Contents"
+    val containerName = remember(masterSubItemId, subItems) {
+        subItems.find { it.id == masterSubItemId }?.name ?: "Sub-category Contents"
     }
 
     var showAddDialog by remember { mutableStateOf(false) }
@@ -46,17 +45,17 @@ fun MasterSubItemsScreen(
     var imagePath by remember { mutableStateOf<String?>(null) }
 
     var showEditDialog by remember { mutableStateOf(false) }
-    var editItem by remember { mutableStateOf<MasterSubItem?>(null) }
+    var editItem by remember { mutableStateOf<MasterSubSubItem?>(null) }
 
-    LaunchedEffect(masterItemId) {
-        viewModel.loadMasterSubItems(masterItemId)
+    LaunchedEffect(masterSubItemId) {
+        viewModel.loadMasterSubSubItems(masterSubItemId)
     }
 
     if (showAddDialog) {
         AlertDialog(
             onDismissRequest = { 
                 showAddDialog = false
-                itemName = ""; itemQty = "1"; isContainer = false; imagePath = null
+                itemName = ""; itemQty = "1"; imagePath = null; isContainer = false
             },
             title = { Text("Add Item to $containerName") },
             text = {
@@ -65,22 +64,18 @@ fun MasterSubItemsScreen(
                     if (!isContainer) {
                         OutlinedTextField(value = itemQty, onValueChange = { itemQty = it }, label = { Text("Default Quantity") }, modifier = Modifier.fillMaxWidth())
                     }
-                    
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
                         Checkbox(checked = isContainer, onCheckedChange = { isContainer = it })
-                        Text("Is this a sub-category?")
+                        Text("Is Container")
                     }
-
                     ImagePicker(currentImagePath = imagePath, onImageSelected = { imagePath = it })
                 }
             },
             confirmButton = {
                 Button(onClick = {
                     if (itemName.isNotBlank()) {
-                        viewModel.addMasterSubItem(masterItemId, itemName, if (isContainer) 0 else (itemQty.toIntOrNull() ?: 1), isContainer, imagePath)
-                        itemName = ""; itemQty = "1"; isContainer = false; imagePath = null
+                        viewModel.addMasterSubSubItem(masterSubItemId, itemName, if (isContainer) 0 else (itemQty.toIntOrNull() ?: 1), isContainer, imagePath)
+                        itemName = ""; itemQty = "1"; imagePath = null; isContainer = false
                         showAddDialog = false
                     }
                 }) { Text("Add") }
@@ -88,7 +83,7 @@ fun MasterSubItemsScreen(
             dismissButton = {
                 TextButton(onClick = { 
                     showAddDialog = false
-                    itemName = ""; itemQty = "1"; isContainer = false; imagePath = null
+                    itemName = ""; itemQty = "1"; imagePath = null; isContainer = false
                 }) { Text("Cancel") }
             }
         )
@@ -109,21 +104,17 @@ fun MasterSubItemsScreen(
                     if (!editIsContainer) {
                         OutlinedTextField(value = editQty, onValueChange = { editQty = it }, label = { Text("Default Quantity") }, modifier = Modifier.fillMaxWidth())
                     }
-                    
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
                         Checkbox(checked = editIsContainer, onCheckedChange = { editIsContainer = it })
-                        Text("Is this a sub-category?")
+                        Text("Is Container")
                     }
-
                     ImagePicker(currentImagePath = editImagePath, onImageSelected = { editImagePath = it })
                 }
             },
             confirmButton = {
                 Button(onClick = {
                     if (editName.isNotBlank()) {
-                        viewModel.updateMasterSubItem(editItem!!.copy(
+                        viewModel.updateMasterSubSubItem(editItem!!.copy(
                             name = editName, 
                             default_quantity = if (editIsContainer) 0 else (editQty.toIntOrNull() ?: 1),
                             is_container = editIsContainer,
@@ -166,14 +157,13 @@ fun MasterSubItemsScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             items(items) { item ->
-                MasterSubItemRow(
+                MasterSubSubItemRow(
                     item = item,
-                    onOpenSubContainer = { onOpenSubContainer(item.id) },
                     onEdit = {
                         editItem = item
                         showEditDialog = true
                     },
-                    onDelete = { viewModel.deleteMasterSubItem(item.id) }
+                    onDelete = { viewModel.deleteMasterSubSubItem(item.id) }
                 )
             }
         }
@@ -182,9 +172,8 @@ fun MasterSubItemsScreen(
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun MasterSubItemRow(
-    item: MasterSubItem,
-    onOpenSubContainer: () -> Unit,
+fun MasterSubSubItemRow(
+    item: MasterSubSubItem,
     onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
@@ -195,7 +184,7 @@ fun MasterSubItemRow(
         modifier = Modifier
             .fillMaxWidth()
             .combinedClickable(
-                onClick = { if (item.is_container) onOpenSubContainer() },
+                onClick = { },
                 onLongClick = { expanded = true }
             ),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
@@ -222,9 +211,6 @@ fun MasterSubItemRow(
                     Text(item.name, style = MaterialTheme.typography.titleMedium)
                     if (!item.is_container) {
                         Text("Qty: ${item.default_quantity}", style = MaterialTheme.typography.bodySmall)
-                    }
-                    if (item.is_container) {
-                        Text("Sub-category (Tap to open)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
                     }
                 }
             }

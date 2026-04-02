@@ -1,23 +1,29 @@
 package au.barney.tripkit.ui.screens
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import au.barney.tripkit.data.model.MasterItem
 import au.barney.tripkit.data.model.MasterItemWithCount
 import au.barney.tripkit.ui.viewmodel.MasterItemViewModel
+import coil.compose.AsyncImage
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -30,13 +36,19 @@ fun MasterInventoryScreen(
     var showAddDialog by remember { mutableStateOf(false) }
     var newItemName by remember { mutableStateOf("") }
     var isContainer by remember { mutableStateOf(false) }
+    var imagePath by remember { mutableStateOf<String?>(null) }
 
     var showEditDialog by remember { mutableStateOf(false) }
     var itemToEdit by remember { mutableStateOf<MasterItem?>(null) }
 
     if (showAddDialog) {
         AlertDialog(
-            onDismissRequest = { showAddDialog = false },
+            onDismissRequest = { 
+                showAddDialog = false
+                newItemName = ""
+                isContainer = false
+                imagePath = null
+            },
             title = { Text("Add Master Item") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -52,20 +64,31 @@ fun MasterInventoryScreen(
                         Checkbox(checked = isContainer, onCheckedChange = { isContainer = it })
                         Text("Is this a container?")
                     }
+                    
+                    ImagePicker(
+                        currentImagePath = imagePath,
+                        onImageSelected = { imagePath = it }
+                    )
                 }
             },
             confirmButton = {
                 Button(onClick = {
                     if (newItemName.isNotBlank()) {
-                        viewModel.addMasterItem(newItemName, isContainer)
+                        viewModel.addMasterItem(newItemName, isContainer, imagePath)
                         newItemName = ""
                         isContainer = false
+                        imagePath = null
                         showAddDialog = false
                     }
                 }) { Text("Add") }
             },
             dismissButton = {
-                TextButton(onClick = { showAddDialog = false }) { Text("Cancel") }
+                TextButton(onClick = { 
+                    showAddDialog = false
+                    newItemName = ""
+                    isContainer = false
+                    imagePath = null
+                }) { Text("Cancel") }
             }
         )
     }
@@ -73,6 +96,7 @@ fun MasterInventoryScreen(
     if (showEditDialog && itemToEdit != null) {
         var editName by remember { mutableStateOf(itemToEdit!!.name) }
         var editIsContainer by remember { mutableStateOf(itemToEdit!!.is_container) }
+        var editImagePath by remember { mutableStateOf(itemToEdit!!.image_path) }
 
         AlertDialog(
             onDismissRequest = { showEditDialog = false },
@@ -91,12 +115,21 @@ fun MasterInventoryScreen(
                         Checkbox(checked = editIsContainer, onCheckedChange = { editIsContainer = it })
                         Text("Is this a container?")
                     }
+                    
+                    ImagePicker(
+                        currentImagePath = editImagePath,
+                        onImageSelected = { editImagePath = it }
+                    )
                 }
             },
             confirmButton = {
                 Button(onClick = {
                     if (editName.isNotBlank()) {
-                        viewModel.updateMasterItem(itemToEdit!!.copy(name = editName, is_container = editIsContainer))
+                        viewModel.updateMasterItem(itemToEdit!!.copy(
+                            name = editName, 
+                            is_container = editIsContainer,
+                            image_path = editImagePath
+                        ))
                         showEditDialog = false
                         itemToEdit = null
                     }
@@ -117,9 +150,16 @@ fun MasterInventoryScreen(
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MaterialTheme.colorScheme.onPrimaryContainer)
                     }
                 },
+                actions = {
+                    IconButton(onClick = { viewModel.syncPictures() }) {
+                        Icon(Icons.Default.Sync, contentDescription = "Sync Pictures", tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    actionIconContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    navigationIconContentColor = MaterialTheme.colorScheme.onPrimaryContainer
                 )
             )
         },
@@ -160,6 +200,7 @@ fun MasterItemRow(
     onDelete: () -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
+    var showFullScreen by remember { mutableStateOf(false) }
 
     Card(
         modifier = Modifier
@@ -172,9 +213,22 @@ fun MasterItemRow(
     ) {
         Box {
             Row(
-                modifier = Modifier.padding(16.dp),
+                modifier = Modifier.padding(12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                if (item.image_path != null) {
+                    AsyncImage(
+                        model = item.image_path,
+                        contentDescription = null,
+                        modifier = Modifier
+                            .size(50.dp)
+                            .clip(RoundedCornerShape(4.dp))
+                            .clickable { showFullScreen = true },
+                        contentScale = ContentScale.Crop
+                    )
+                    Spacer(Modifier.width(12.dp))
+                }
+
                 Column(modifier = Modifier.weight(1f)) {
                     Text(item.name, style = MaterialTheme.typography.titleMedium)
                     if (item.is_container) {
@@ -215,5 +269,9 @@ fun MasterItemRow(
                 )
             }
         }
+    }
+
+    if (showFullScreen && item.image_path != null) {
+        FullScreenImageDialog(item.image_path) { showFullScreen = false }
     }
 }

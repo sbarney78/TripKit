@@ -88,10 +88,10 @@ class EntryViewModel(
 
     // ------------------ ADD ENTRY ------------------
 
-    fun addEntry(listId: Int, name: String, quantity: Int, notes: String?, entryType: String) {
+    fun addEntry(listId: Int, name: String, quantity: Int, notes: String?, entryType: String, imagePath: String? = null) {
         viewModelScope.launch {
             try {
-                repository.addEntry(name, entryType, quantity, notes, listId)
+                repository.addEntry(name, entryType, quantity, notes, listId, imagePath)
             } catch (e: Exception) {
                 _error.value = e.message ?: "Unknown error"
             }
@@ -107,11 +107,12 @@ class EntryViewModel(
         quantity: Int,
         notes: String?,
         entryType: String,
-        listId: Int
+        listId: Int,
+        imagePath: String? = null
     ) {
         viewModelScope.launch {
             try {
-                repository.updateEntry(entryId, name, quantity, notes, entryType)
+                repository.updateEntry(entryId, name, quantity, notes, entryType, imagePath)
             } catch (e: Exception) {
                 _error.value = e.message ?: "Unknown error"
             }

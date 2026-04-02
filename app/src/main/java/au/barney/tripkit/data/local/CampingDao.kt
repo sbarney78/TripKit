@@ -38,6 +38,9 @@ interface TripKitDao {
 
     @Query("SELECT * FROM entries WHERE list_id = :listId ORDER BY entry_name ASC")
     suspend fun getEntriesSync(listId: Int): List<Entry>
+    
+    @Query("SELECT * FROM entries")
+    suspend fun getAllEntriesSync(): List<Entry>
 
     @Query("SELECT * FROM entries WHERE entry_id = :entryId")
     suspend fun getEntry(entryId: Int): Entry?
@@ -69,6 +72,9 @@ interface TripKitDao {
 
     @Query("SELECT * FROM items WHERE entry_id = :entryId ORDER BY item_name ASC")
     suspend fun getItemsSync(entryId: Int): List<Item>
+    
+    @Query("SELECT * FROM items")
+    suspend fun getAllItemsSync(): List<Item>
 
     @Query("SELECT * FROM items WHERE entry_id IN (SELECT entry_id FROM entries WHERE list_id = :listId) ORDER BY item_name ASC")
     fun getAllItemsForList(listId: Int): Flow<List<Item>>
@@ -227,6 +233,9 @@ interface TripKitDao {
 
     @Query("SELECT * FROM master_sub_items WHERE master_item_id = :masterItemId")
     suspend fun getMasterSubItemsSync(masterItemId: Int): List<MasterSubItem>
+    
+    @Query("SELECT * FROM master_sub_items")
+    suspend fun getAllMasterSubItemsSync(): List<MasterSubItem>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertMasterSubItem(item: MasterSubItem): Long
@@ -236,6 +245,19 @@ interface TripKitDao {
 
     @Query("DELETE FROM master_sub_items WHERE id = :id")
     suspend fun deleteMasterSubItem(id: Int)
+
+    // ------------------ MASTER SUB SUB ITEMS ------------------
+    @Query("SELECT * FROM master_sub_sub_items WHERE master_sub_item_id = :subItemId ORDER BY name ASC")
+    fun getMasterSubSubItems(subItemId: Int): Flow<List<MasterSubSubItem>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertMasterSubSubItem(item: MasterSubSubItem): Long
+
+    @Update
+    suspend fun updateMasterSubSubItem(item: MasterSubSubItem)
+
+    @Query("DELETE FROM master_sub_sub_items WHERE id = :id")
+    suspend fun deleteMasterSubSubItem(id: Int)
 
     // ------------------ ITINERARY ------------------
     @Query("SELECT * FROM itinerary_items WHERE list_id = :listId ORDER BY day ASC, time ASC")
@@ -247,8 +269,8 @@ interface TripKitDao {
     @Query("SELECT * FROM itinerary_items WHERE id = :id")
     suspend fun getItineraryItem(id: Int): ItineraryItem?
 
-    @Query("SELECT * FROM itinerary_items WHERE sync_id = :syncId AND list_id = :listId")
-    suspend fun getItineraryItemBySyncId(syncId: String, listId: Int): ItineraryItem?
+    @Query("SELECT * FROM itinerary_items WHERE sync_id = :sync_id AND list_id = :listId")
+    suspend fun getItineraryItemBySyncId(sync_id: String, listId: Int): ItineraryItem?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertItineraryItem(item: ItineraryItem)

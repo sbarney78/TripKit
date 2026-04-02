@@ -29,5 +29,13 @@ data class Item(
     @ColumnInfo(defaultValue = "")
     val sync_id: String = UUID.randomUUID().toString(),
     @ColumnInfo(defaultValue = "0")
-    val last_updated: Long = System.currentTimeMillis()
+    val last_updated: Long = System.currentTimeMillis(),
+    val image_path: String? = null,
+    @ColumnInfo(defaultValue = "0")
+    val is_container: Boolean = false
+)
+
+data class ItemWithCount(
+    val item: Item,
+    val subSubItemCount: Int
 )

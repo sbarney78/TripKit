@@ -1,6 +1,7 @@
 package au.barney.tripkit.ui.screens
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -22,7 +23,7 @@ fun EditItemScreen(
     val error by viewModel.error.collectAsState()
     val item by viewModel.currentItem.collectAsState()
 
-    // ⭐ FIX: Reload item every time itemId changes
+    // Reload item every time itemId changes
     LaunchedEffect(itemId) {
         viewModel.loadItem(itemId)
     }
@@ -47,7 +48,6 @@ fun EditItemScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(16.dp)
         ) {
 
             when {
@@ -66,13 +66,22 @@ fun EditItemScreen(
                 }
 
                 item != null -> {
+                    val currentItem = item!!
                     EditItemForm(
                         itemId = itemId,
-                        nameInitial = item!!.item_name,
-                        quantityInitial = item!!.quantity,
-                        notesInitial = item!!.notes ?: "",
-                        onSave = { name, quantity, notes ->
-                            viewModel.updateItem(itemId, name, quantity, notes)
+                        nameInitial = currentItem.item_name,
+                        quantityInitial = currentItem.quantity,
+                        notesInitial = currentItem.notes ?: "",
+                        imagePathInitial = currentItem.image_path,
+                        onSave = { name, quantity, notes, imagePath ->
+                            viewModel.updateItem(
+                                itemId = itemId,
+                                name = name,
+                                quantity = quantity,
+                                notes = notes,
+                                isContainer = currentItem.is_container,
+                                imagePath = imagePath
+                            )
                             onBack()
                         }
                     )
@@ -88,47 +97,62 @@ private fun EditItemForm(
     nameInitial: String,
     quantityInitial: Int,
     notesInitial: String,
-    onSave: (String, Int, String?) -> Unit
+    imagePathInitial: String?,
+    onSave: (String, Int, String?, String?) -> Unit
 ) {
-    // ⭐ FIX: Reset state whenever a NEW item is loaded
     var name by remember(itemId) { mutableStateOf(nameInitial) }
     var quantity by remember(itemId) { mutableStateOf(quantityInitial.toString()) }
     var notes by remember(itemId) { mutableStateOf(notesInitial) }
+    var imagePath by remember(itemId) { mutableStateOf(imagePathInitial) }
 
-    Column(
-        modifier = Modifier.fillMaxWidth(),
+    LazyColumn(
+        modifier = Modifier.fillMaxSize().padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
+        item {
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                label = { Text("Item Name") },
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
 
-        OutlinedTextField(
-            value = name,
-            onValueChange = { name = it },
-            label = { Text("Item Name") },
-            modifier = Modifier.fillMaxWidth()
-        )
+        item {
+            OutlinedTextField(
+                value = quantity,
+                onValueChange = { quantity = it.filter { c -> c.isDigit() } },
+                label = { Text("Quantity") },
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
 
-        OutlinedTextField(
-            value = quantity,
-            onValueChange = { quantity = it.filter { c -> c.isDigit() } },
-            label = { Text("Quantity") },
-            modifier = Modifier.fillMaxWidth()
-        )
+        item {
+            OutlinedTextField(
+                value = notes,
+                onValueChange = { notes = it },
+                label = { Text("Notes") },
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
 
-        OutlinedTextField(
-            value = notes,
-            onValueChange = { notes = it },
-            label = { Text("Notes") },
-            modifier = Modifier.fillMaxWidth()
-        )
+        item {
+            ImagePicker(
+                currentImagePath = imagePath,
+                onImageSelected = { imagePath = it }
+            )
+        }
 
-        Button(
-            onClick = {
-                val qty = quantity.toIntOrNull() ?: 1
-                onSave(name, qty, notes)
-            },
-            modifier = Modifier.align(Alignment.End)
-        ) {
-            Text("Save")
+        item {
+            Button(
+                onClick = {
+                    val qty = quantity.toIntOrNull() ?: 1
+                    onSave(name, qty, notes, imagePath)
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Save")
+            }
         }
     }
 }

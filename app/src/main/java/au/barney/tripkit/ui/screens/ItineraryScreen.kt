@@ -211,6 +211,7 @@ fun ItineraryCard(
                             "Meal" -> Icons.Default.Restaurant
                             "Accommodation" -> Icons.Default.Hotel
                             "Activity" -> Icons.Default.Sailing
+                            "Holiday" -> Icons.Default.BeachAccess
                             "Coffee" -> Icons.Default.LocalCafe
                             "IceCream" -> Icons.Default.Icecream
                             "Easter Bunny" -> Icons.Default.Egg
@@ -387,7 +388,7 @@ fun ItineraryDialog(
         is24Hour = false
     )
 
-    val categories = listOf("Activity", "Travel", "Meal", "Accommodation", "Coffee", "IceCream", "Easter Bunny", "Santa", "Shopping", "Sightseeing", "Other")
+    val categories = listOf("Activity", "Holiday", "Travel", "Meal", "Accommodation", "Coffee", "IceCream", "Easter Bunny", "Santa", "Shopping", "Sightseeing", "Other")
     var categoryExpanded by remember { mutableStateOf(false) }
 
     if (activePicker == "day" || activePicker == "depDay") {
