@@ -11,6 +11,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
@@ -23,10 +24,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import au.barney.tripkit.data.model.MasterSubItem
 import au.barney.tripkit.ui.viewmodel.MasterItemViewModel
 import au.barney.tripkit.ui.components.DraggableFAB
+import au.barney.tripkit.util.WeightUtils
 import coil.compose.AsyncImage
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -51,6 +54,8 @@ fun MasterSubItemsScreen(
     var isContainer by remember { mutableStateOf(false) }
     var itemColor by remember { mutableStateOf("#800000") }
     var imagePath by remember { mutableStateOf<String?>(null) }
+    var weightInput by remember { mutableStateOf("") }
+    var weightUnit by remember { mutableStateOf("g") }
 
     var showEditDialog by remember { mutableStateOf(false) }
     var editItem by remember { mutableStateOf<MasterSubItem?>(null) }
@@ -69,12 +74,34 @@ fun MasterSubItemsScreen(
         AlertDialog(
             onDismissRequest = { 
                 showAddDialog = false
-                itemName = ""; itemQty = "1"; isContainer = false; imagePath = null; itemColor = "#800000"
+                itemName = ""; itemQty = "1"; isContainer = false; imagePath = null; itemColor = "#800000"; weightInput = ""; weightUnit = "g"
             },
             title = { Text("Add Item to $containerName") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(value = itemName, onValueChange = { itemName = it }, label = { Text("Item Name") }, modifier = Modifier.fillMaxWidth())
+                    
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                        OutlinedTextField(
+                            value = weightInput,
+                            onValueChange = { weightInput = it },
+                            label = { Text("Weight") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                            modifier = Modifier.weight(1f)
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        var unitExpanded by remember { mutableStateOf(false) }
+                        Box {
+                            TextButton(onClick = { unitExpanded = true }) {
+                                Text(weightUnit)
+                            }
+                            DropdownMenu(expanded = unitExpanded, onDismissRequest = { unitExpanded = false }) {
+                                DropdownMenuItem(text = { Text("g") }, onClick = { weightUnit = "g"; unitExpanded = false })
+                                DropdownMenuItem(text = { Text("kg") }, onClick = { weightUnit = "kg"; unitExpanded = false })
+                            }
+                        }
+                    }
+
                     if (!isContainer) {
                         OutlinedTextField(value = itemQty, onValueChange = { itemQty = it }, label = { Text("Default Quantity") }, modifier = Modifier.fillMaxWidth())
                     }
@@ -115,8 +142,13 @@ fun MasterSubItemsScreen(
             confirmButton = {
                 Button(onClick = {
                     if (itemName.isNotBlank()) {
-                        viewModel.addMasterSubItem(masterItemId, itemName, if (isContainer) 0 else (itemQty.toIntOrNull() ?: 1), isContainer, imagePath, itemColor)
-                        itemName = ""; itemQty = "1"; isContainer = false; imagePath = null; itemColor = "#800000"
+                        val weightGrams = try {
+                            val value = weightInput.toDouble()
+                            if (weightUnit == "kg") (value * 1000).toInt() else value.toInt()
+                        } catch (e: Exception) { 0 }
+
+                        viewModel.addMasterSubItem(masterItemId, itemName, if (isContainer) 0 else (itemQty.toIntOrNull() ?: 1), isContainer, imagePath, itemColor, weightGrams)
+                        itemName = ""; itemQty = "1"; isContainer = false; imagePath = null; itemColor = "#800000"; weightInput = ""; weightUnit = "g"
                         showAddDialog = false
                     }
                 }) { Text("Add") }
@@ -124,7 +156,7 @@ fun MasterSubItemsScreen(
             dismissButton = {
                 TextButton(onClick = { 
                     showAddDialog = false
-                    itemName = ""; itemQty = "1"; isContainer = false; imagePath = null; itemColor = "#800000"
+                    itemName = ""; itemQty = "1"; isContainer = false; imagePath = null; itemColor = "#800000"; weightInput = ""
                 }) { Text("Cancel") }
             }
         )
@@ -136,6 +168,11 @@ fun MasterSubItemsScreen(
         var editIsContainer by remember { mutableStateOf(editItem!!.is_container) }
         var editImagePath by remember { mutableStateOf(editItem!!.image_path) }
         var editColor by remember { mutableStateOf(editItem!!.color) }
+        var editWeightInput by remember { 
+            val grams = editItem!!.weightGrams
+            mutableStateOf(if (grams >= 1000) (grams / 1000.0).toString() else grams.toString())
+        }
+        var editWeightUnit by remember { mutableStateOf(if (editItem!!.weightGrams >= 1000) "kg" else "g") }
 
         AlertDialog(
             onDismissRequest = { showEditDialog = false },
@@ -143,6 +180,28 @@ fun MasterSubItemsScreen(
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(value = editName, onValueChange = { editName = it }, label = { Text("Item Name") }, modifier = Modifier.fillMaxWidth())
+                    
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                        OutlinedTextField(
+                            value = editWeightInput,
+                            onValueChange = { editWeightInput = it },
+                            label = { Text("Weight") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                            modifier = Modifier.weight(1f)
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        var unitExpanded by remember { mutableStateOf(false) }
+                        Box {
+                            TextButton(onClick = { unitExpanded = true }) {
+                                Text(editWeightUnit)
+                            }
+                            DropdownMenu(expanded = unitExpanded, onDismissRequest = { unitExpanded = false }) {
+                                DropdownMenuItem(text = { Text("g") }, onClick = { editWeightUnit = "g"; unitExpanded = false })
+                                DropdownMenuItem(text = { Text("kg") }, onClick = { editWeightUnit = "kg"; unitExpanded = false })
+                            }
+                        }
+                    }
+
                     if (!editIsContainer) {
                         OutlinedTextField(value = editQty, onValueChange = { editQty = it }, label = { Text("Default Quantity") }, modifier = Modifier.fillMaxWidth())
                     }
@@ -187,12 +246,18 @@ fun MasterSubItemsScreen(
             confirmButton = {
                 Button(onClick = {
                     if (editName.isNotBlank()) {
+                        val weightGrams = try {
+                            val value = editWeightInput.toDouble()
+                            if (editWeightUnit == "kg") (value * 1000).toInt() else value.toInt()
+                        } catch (e: Exception) { editItem!!.weightGrams }
+
                         viewModel.updateMasterSubItem(editItem!!.copy(
                             name = editName, 
                             default_quantity = if (editIsContainer) 0 else (editQty.toIntOrNull() ?: 1),
                             is_container = editIsContainer,
                             image_path = editImagePath,
-                            color = editColor
+                            color = editColor,
+                            weightGrams = weightGrams
                         ))
                         showEditDialog = false
                     }
@@ -306,10 +371,15 @@ fun MasterSubItemRow(
 
                     Column(modifier = Modifier.weight(1f)) {
                         Text(item.name, style = MaterialTheme.typography.titleMedium)
-                        if (!item.is_container) {
-                            Text("Qty: ${item.default_quantity}", style = MaterialTheme.typography.bodySmall)
-                        } else {
-                            Text("Sub-Category (Tap to open)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(WeightUtils.formatWeight(item.weightGrams), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                            if (item.is_container) {
+                                Spacer(Modifier.width(8.dp))
+                                Text("Sub-Category (Tap to open)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+                            } else {
+                                Spacer(Modifier.width(8.dp))
+                                Text("Qty: ${item.default_quantity}", style = MaterialTheme.typography.bodySmall)
+                            }
                         }
                     }
 

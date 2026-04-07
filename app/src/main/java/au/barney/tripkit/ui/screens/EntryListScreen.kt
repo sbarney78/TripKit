@@ -6,9 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -25,6 +23,7 @@ import au.barney.tripkit.ui.viewmodel.EntryViewModel
 import au.barney.tripkit.ui.viewmodel.ItemViewModel
 import au.barney.tripkit.ui.viewmodel.MasterItemViewModel
 import au.barney.tripkit.util.PdfGenerator
+import au.barney.tripkit.util.WeightUtils
 import au.barney.tripkit.ui.components.DraggableFAB
 
 import androidx.compose.material.icons.Icons
@@ -32,6 +31,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.PictureAsPdf
+import androidx.compose.material.icons.filled.MonitorWeight
 import coil.compose.AsyncImage
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -45,7 +45,8 @@ fun EntryListScreen(
     onAddEntry: () -> Unit,
     onEditEntry: (Int) -> Unit,
     onBack: () -> Unit,
-    onViewPdf: (String) -> Unit
+    onViewPdf: (String) -> Unit,
+    onOpenWeight: (Int, String) -> Unit
 ) {
     val entriesWithCount by viewModel.entriesWithCount.collectAsState()
     val allItems by itemViewModel.allItems.collectAsState()
@@ -73,6 +74,13 @@ fun EntryListScreen(
                     }
                 },
                 actions = {
+                    IconButton(
+                        onClick = {
+                            currentList?.let { onOpenWeight(listId, it.name) }
+                        }
+                    ) {
+                        Icon(Icons.Default.MonitorWeight, contentDescription = "Weight", tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                    }
                     IconButton(
                         onClick = {
                             val file = PdfGenerator.generateInventoryPdf(
@@ -125,6 +133,9 @@ fun EntryListScreen(
                 }
 
                 else -> {
+                    val subItemsByItemId = allSubItems.groupBy { it.item_id }
+                    val itemsByEntryId = allItems.groupBy { it.entry_id }
+
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(16.dp),
@@ -134,9 +145,28 @@ fun EntryListScreen(
                             items = entriesWithCount,
                             key = { it.entry.entry_id }
                         ) { itemWithCount ->
+                            val entry = itemWithCount.entry
+                            
+                            val calculatedWeight = if (entry.entry_type == "container") {
+                                val entryItems = itemsByEntryId[entry.entry_id] ?: emptyList()
+                                val contentsWeight = entryItems.sumOf { item ->
+                                    val itemContentsWeight = if (item.is_container) {
+                                        val itemSubItems = subItemsByItemId[item.item_id] ?: emptyList()
+                                        itemSubItems.sumOf { it.weightGrams * it.quantity }
+                                    } else {
+                                        0
+                                    }
+                                    (item.weightGrams + itemContentsWeight) * item.quantity
+                                }
+                                (entry.weightGrams + contentsWeight) * entry.quantity
+                            } else {
+                                entry.weightGrams * entry.quantity
+                            }
+
                             EntryRow(
-                                entry = itemWithCount.entry,
+                                entry = entry,
                                 subItemCount = itemWithCount.subItemCount,
+                                weightGrams = calculatedWeight,
                                 onToggle = { checked ->
                                     viewModel.toggleEntry(itemWithCount.entry.entry_id, checked, listId)
                                 },
@@ -163,6 +193,7 @@ fun EntryListScreen(
 fun EntryRow(
     entry: Entry,
     subItemCount: Int,
+    weightGrams: Int,
     onToggle: (Boolean) -> Unit,
     onClick: () -> Unit,
     onEdit: () -> Unit,
@@ -236,11 +267,19 @@ fun EntryRow(
                             color = if (entry.is_checked == 1) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.onSurface
                         )
 
-                        if (!isContainer) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
-                                text = "Qty: ${entry.quantity}",
-                                style = MaterialTheme.typography.bodyMedium
+                                text = WeightUtils.formatWeight(weightGrams),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.outline
                             )
+                            if (entry.quantity > 1 || !isContainer) {
+                                Spacer(Modifier.width(8.dp))
+                                Text(
+                                    text = "Qty: ${entry.quantity}",
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                            }
                         }
 
                         if (!entry.notes.isNullOrEmpty()) {

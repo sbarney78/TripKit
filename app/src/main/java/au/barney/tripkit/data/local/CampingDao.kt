@@ -57,6 +57,9 @@ interface TripKitDao {
     @Query("UPDATE entries SET color = :color WHERE entry_name = :name COLLATE NOCASE")
     suspend fun updateEntryColorByName(name: String, color: String)
 
+    @Query("UPDATE entries SET weightGrams = :weight WHERE entry_name = :name COLLATE NOCASE")
+    suspend fun updateEntryWeightByName(name: String, weight: Int)
+
     @Query("DELETE FROM entries WHERE entry_id = :entryId")
     suspend fun deleteEntry(entryId: Int)
 
@@ -106,6 +109,9 @@ interface TripKitDao {
     @Query("UPDATE items SET color = :color WHERE item_name = :name COLLATE NOCASE")
     suspend fun updateItemColorByName(name: String, color: String)
 
+    @Query("UPDATE items SET weightGrams = :weight WHERE item_name = :name COLLATE NOCASE")
+    suspend fun updateItemWeightByName(name: String, weight: Int)
+
     @Query("DELETE FROM items WHERE item_id = :itemId")
     suspend fun deleteItem(itemId: Int)
 
@@ -148,6 +154,9 @@ interface TripKitDao {
 
     @Query("UPDATE sub_items SET color = :color WHERE name = :name COLLATE NOCASE")
     suspend fun updateSubItemColorByName(name: String, color: String)
+
+    @Query("UPDATE sub_items SET weightGrams = :weight WHERE name = :name COLLATE NOCASE")
+    suspend fun updateSubItemWeightByName(name: String, weight: Int)
 
     @Query("DELETE FROM sub_items WHERE id = :id")
     suspend fun deleteSubItem(id: Int)
@@ -376,6 +385,9 @@ interface TripKitDao {
     @Query("UPDATE template_entries SET color = :color WHERE name = :name COLLATE NOCASE")
     suspend fun updateTemplateEntryColorByName(name: String, color: String)
 
+    @Query("UPDATE template_entries SET weightGrams = :weight WHERE name = :name COLLATE NOCASE")
+    suspend fun updateTemplateEntryWeightByName(name: String, weight: Int)
+
     @Query("UPDATE template_entries SET is_checked = :checked WHERE id = :id")
     suspend fun updateTemplateEntryChecked(id: Int, checked: Int)
 
@@ -402,6 +414,9 @@ interface TripKitDao {
 
     @Query("UPDATE template_items SET color = :color WHERE name = :name COLLATE NOCASE")
     suspend fun updateTemplateItemColorByName(name: String, color: String)
+
+    @Query("UPDATE template_items SET weightGrams = :weight WHERE name = :name COLLATE NOCASE")
+    suspend fun updateTemplateItemWeightByName(name: String, weight: Int)
 
     @Query("UPDATE template_items SET is_checked = :checked WHERE id = :id")
     suspend fun updateTemplateItemChecked(id: Int, checked: Int)
@@ -430,6 +445,9 @@ interface TripKitDao {
     @Query("UPDATE template_sub_items SET color = :color WHERE name = :name COLLATE NOCASE")
     suspend fun updateTemplateSubItemColorByName(name: String, color: String)
 
+    @Query("UPDATE template_sub_items SET weightGrams = :weight WHERE name = :name COLLATE NOCASE")
+    suspend fun updateTemplateSubItemWeightByName(name: String, weight: Int)
+
     @Query("UPDATE template_sub_items SET is_checked = :checked WHERE id = :id")
     suspend fun updateTemplateSubItemChecked(id: Int, checked: Int)
 
@@ -441,4 +459,17 @@ interface TripKitDao {
 
     @Query("DELETE FROM template_sub_items WHERE id = :id")
     suspend fun deleteTemplateSubItem(id: Int)
+
+    // ------------------ EXTRA WEIGHT PROFILES ------------------
+    @Query("SELECT * FROM extra_weight_profiles ORDER BY category ASC, name ASC")
+    fun getExtraWeightProfiles(): Flow<List<ExtraWeightProfile>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertExtraWeightProfile(profile: ExtraWeightProfile)
+
+    @Update
+    suspend fun updateExtraWeightProfile(profile: ExtraWeightProfile)
+
+    @Query("DELETE FROM extra_weight_profiles WHERE id = :id")
+    suspend fun deleteExtraWeightProfile(id: Int)
 }

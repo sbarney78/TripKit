@@ -35,7 +35,9 @@ data class Item(
     @ColumnInfo(defaultValue = "0")
     val is_container: Boolean = false,
     @ColumnInfo(defaultValue = "#800000") // Default Maroon
-    val color: String = "#800000"
+    val color: String = "#800000",
+    @ColumnInfo(defaultValue = "0")
+    val weightGrams: Int = 0
 )
 
 data class ItemWithCount(

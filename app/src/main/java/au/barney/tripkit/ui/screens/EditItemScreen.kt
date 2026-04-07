@@ -8,12 +8,14 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import au.barney.tripkit.ui.viewmodel.ItemViewModel
 
@@ -83,7 +85,8 @@ fun EditItemScreen(
                         isContainerInitial = currentItem.is_container,
                         imagePathInitial = currentItem.image_path,
                         colorInitial = currentItem.color,
-                        onSave = { name, quantity, notes, isContainer, imagePath, color ->
+                        weightGramsInitial = currentItem.weightGrams,
+                        onSave = { name, quantity, notes, isContainer, imagePath, color, weightGrams ->
                             viewModel.updateItem(
                                 itemId = itemId,
                                 name = name,
@@ -91,7 +94,8 @@ fun EditItemScreen(
                                 notes = notes,
                                 isContainer = isContainer,
                                 imagePath = imagePath,
-                                color = color
+                                color = color,
+                                weightGrams = weightGrams
                             )
                             onBack()
                         }
@@ -111,7 +115,8 @@ private fun EditItemForm(
     isContainerInitial: Boolean,
     imagePathInitial: String?,
     colorInitial: String,
-    onSave: (String, Int, String?, Boolean, String?, String) -> Unit
+    weightGramsInitial: Int,
+    onSave: (String, Int, String?, Boolean, String?, String, Int) -> Unit
 ) {
     var name by remember(itemId) { mutableStateOf(nameInitial) }
     var quantity by remember(itemId) { mutableStateOf(quantityInitial.toString()) }
@@ -119,6 +124,12 @@ private fun EditItemForm(
     var isContainer by remember(itemId) { mutableStateOf(isContainerInitial) }
     var imagePath by remember(itemId) { mutableStateOf(imagePathInitial) }
     var colorHex by remember(itemId) { mutableStateOf(colorInitial) }
+
+    var weightInput by remember(itemId) {
+        val grams = weightGramsInitial
+        mutableStateOf(if (grams >= 1000) (grams / 1000.0).toString() else grams.toString())
+    }
+    var weightUnit by remember(itemId) { mutableStateOf(if (weightGramsInitial >= 1000) "kg" else "g") }
 
     val presetColors = listOf(
         "#800000", "#FF0000", "#FF4500", "#FF8C00", "#FFD700",
@@ -140,13 +151,35 @@ private fun EditItemForm(
         }
 
         item {
-            if (!isContainer) {
+            OutlinedTextField(
+                value = quantity,
+                onValueChange = { quantity = it.filter { c -> c.isDigit() } },
+                label = { Text("Quantity") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+
+        item {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                 OutlinedTextField(
-                    value = quantity,
-                    onValueChange = { quantity = it.filter { c -> c.isDigit() } },
-                    label = { Text("Quantity") },
-                    modifier = Modifier.fillMaxWidth()
+                    value = weightInput,
+                    onValueChange = { weightInput = it },
+                    label = { Text("Weight (Each)") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    modifier = Modifier.weight(1f)
                 )
+                Spacer(Modifier.width(8.dp))
+                var unitExpanded by remember { mutableStateOf(false) }
+                Box {
+                    TextButton(onClick = { unitExpanded = true }) {
+                        Text(weightUnit)
+                    }
+                    DropdownMenu(expanded = unitExpanded, onDismissRequest = { unitExpanded = false }) {
+                        DropdownMenuItem(text = { Text("g") }, onClick = { weightUnit = "g"; unitExpanded = false })
+                        DropdownMenuItem(text = { Text("kg") }, onClick = { weightUnit = "kg"; unitExpanded = false })
+                    }
+                }
             }
         }
 
@@ -205,8 +238,13 @@ private fun EditItemForm(
         item {
             Button(
                 onClick = {
-                    val qty = if (isContainer) 0 else (quantity.toIntOrNull() ?: 1)
-                    onSave(name, qty, notes, isContainer, imagePath, colorHex)
+                    val qty = quantity.toIntOrNull() ?: 1
+                    val weightGrams = try {
+                        val value = weightInput.toDouble()
+                        if (weightUnit == "kg") (value * 1000).toInt() else value.toInt()
+                    } catch (e: Exception) { weightGramsInitial }
+
+                    onSave(name, qty, notes, isContainer, imagePath, colorHex, weightGrams)
                 },
                 modifier = Modifier.fillMaxWidth()
             ) {

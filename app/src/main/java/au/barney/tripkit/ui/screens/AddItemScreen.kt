@@ -8,6 +8,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -15,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import au.barney.tripkit.ui.viewmodel.ItemViewModel
 import au.barney.tripkit.ui.viewmodel.MasterItemViewModel
@@ -34,6 +36,9 @@ fun AddItemScreen(
     var isContainer by remember { mutableStateOf(false) }
     var colorHex by remember { mutableStateOf("#800000") }
     var imagePath by remember { mutableStateOf<String?>(null) }
+    
+    var weightInput by remember { mutableStateOf("") }
+    var weightUnit by remember { mutableStateOf("g") }
 
     val masterItems by masterViewModel.masterItems.collectAsState()
     var showDropdown by remember { mutableStateOf(false) }
@@ -101,6 +106,8 @@ fun AddItemScreen(
                                             isContainer = item.is_container
                                             imagePath = item.image_path
                                             colorHex = item.color
+                                            weightInput = if (item.weightGrams >= 1000) (item.weightGrams / 1000.0).toString() else item.weightGrams.toString()
+                                            weightUnit = if (item.weightGrams >= 1000) "kg" else "g"
                                             showDropdown = false
                                         }
                                     )
@@ -112,13 +119,35 @@ fun AddItemScreen(
             }
 
             item {
-                if (!isContainer) {
+                OutlinedTextField(
+                    value = quantity,
+                    onValueChange = { quantity = it },
+                    label = { Text("Quantity") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+
+            item {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                     OutlinedTextField(
-                        value = quantity,
-                        onValueChange = { quantity = it },
-                        label = { Text("Quantity") },
-                        modifier = Modifier.fillMaxWidth()
+                        value = weightInput,
+                        onValueChange = { weightInput = it },
+                        label = { Text("Weight (Each)") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        modifier = Modifier.weight(1f)
                     )
+                    Spacer(Modifier.width(8.dp))
+                    var unitExpanded by remember { mutableStateOf(false) }
+                    Box {
+                        TextButton(onClick = { unitExpanded = true }) {
+                            Text(weightUnit)
+                        }
+                        DropdownMenu(expanded = unitExpanded, onDismissRequest = { unitExpanded = false }) {
+                            DropdownMenuItem(text = { Text("g") }, onClick = { weightUnit = "g"; unitExpanded = false })
+                            DropdownMenuItem(text = { Text("kg") }, onClick = { weightUnit = "kg"; unitExpanded = false })
+                        }
+                    }
                 }
             }
 
@@ -175,13 +204,18 @@ fun AddItemScreen(
 
                 Button(
                     onClick = {
-                        val qty = if (isContainer) 0 else (quantity.toIntOrNull() ?: 1)
+                        val qty = quantity.toIntOrNull() ?: 1
+                        val weightGrams = try {
+                            val value = weightInput.toDouble()
+                            if (weightUnit == "kg") (value * 1000).toInt() else value.toInt()
+                        } catch (e: Exception) { 0 }
+
                         val exactMatch = masterItems.any { it.name.equals(name, ignoreCase = true) }
                         
                         if (!exactMatch && name.isNotBlank()) {
                             showMasterDialog = true
                         } else {
-                            viewModel.addItem(name, qty, notes, isContainer, imagePath, addToMaster = false, color = colorHex)
+                            viewModel.addItem(name, qty, notes, isContainer, imagePath, addToMaster = false, color = colorHex, weightGrams = weightGrams)
                             onDone()
                         }
                     },
@@ -200,14 +234,26 @@ fun AddItemScreen(
             text = { Text("'$name' is not in your Master Inventory. Would you like to add it for future use?") },
             confirmButton = {
                 Button(onClick = {
-                    viewModel.addItem(name, if (isContainer) 0 else (quantity.toIntOrNull() ?: 1), notes, isContainer, imagePath, addToMaster = true, color = colorHex)
+                    val qty = quantity.toIntOrNull() ?: 1
+                    val weightGrams = try {
+                        val value = weightInput.toDouble()
+                        if (weightUnit == "kg") (value * 1000).toInt() else value.toInt()
+                    } catch (e: Exception) { 0 }
+                    
+                    viewModel.addItem(name, qty, notes, isContainer, imagePath, addToMaster = true, color = colorHex, weightGrams = weightGrams)
                     showMasterDialog = false
                     onDone()
                 }) { Text("Add & Save") }
             },
             dismissButton = {
                 TextButton(onClick = {
-                    viewModel.addItem(name, if (isContainer) 0 else (quantity.toIntOrNull() ?: 1), notes, isContainer, imagePath, addToMaster = false, color = colorHex)
+                    val qty = quantity.toIntOrNull() ?: 1
+                    val weightGrams = try {
+                        val value = weightInput.toDouble()
+                        if (weightUnit == "kg") (value * 1000).toInt() else value.toInt()
+                    } catch (e: Exception) { 0 }
+
+                    viewModel.addItem(name, qty, notes, isContainer, imagePath, addToMaster = false, color = colorHex, weightGrams = weightGrams)
                     showMasterDialog = false
                     onDone()
                 }) { Text("Save Only") }

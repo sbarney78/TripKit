@@ -71,10 +71,10 @@ class MasterItemViewModel(
         }
     }
 
-    fun addMasterItem(name: String, isContainer: Boolean, imagePath: String? = null, color: String = "#800000") {
+    fun addMasterItem(name: String, isContainer: Boolean, imagePath: String? = null, color: String = "#800000", weightGrams: Int = 0) {
         viewModelScope.launch {
             try {
-                repository.addMasterItem(name, isContainer, imagePath, color)
+                repository.addMasterItem(name, isContainer, imagePath, color, weightGrams)
             } catch (e: Exception) {
                 _error.value = e.message ?: "Unknown error"
             }
@@ -130,7 +130,7 @@ class MasterItemViewModel(
         }
     }
 
-    fun addMasterSubItem(masterItemId: Int, name: String, qty: Int, isContainer: Boolean, imagePath: String? = null, color: String = "#800000") {
+    fun addMasterSubItem(masterItemId: Int, name: String, qty: Int, isContainer: Boolean, imagePath: String? = null, color: String = "#800000", weightGrams: Int = 0) {
         viewModelScope.launch {
             try {
                 repository.insertMasterSubItem(MasterSubItem(
@@ -139,7 +139,8 @@ class MasterItemViewModel(
                     default_quantity = qty, 
                     is_container = isContainer,
                     image_path = imagePath,
-                    color = color
+                    color = color,
+                    weightGrams = weightGrams
                 ))
             } catch (e: Exception) {
                 _error.value = e.message
@@ -182,7 +183,7 @@ class MasterItemViewModel(
         }
     }
 
-    fun addMasterSubSubItem(subItemId: Int, name: String, qty: Int, isContainer: Boolean, imagePath: String? = null) {
+    fun addMasterSubSubItem(subItemId: Int, name: String, qty: Int, isContainer: Boolean, imagePath: String? = null, weightGrams: Int = 0) {
         viewModelScope.launch {
             try {
                 repository.insertMasterSubSubItem(MasterSubSubItem(
@@ -190,7 +191,8 @@ class MasterItemViewModel(
                     name = name,
                     default_quantity = qty,
                     is_container = isContainer,
-                    image_path = imagePath
+                    image_path = imagePath,
+                    weightGrams = weightGrams
                 ))
             } catch (e: Exception) {
                 _error.value = e.message

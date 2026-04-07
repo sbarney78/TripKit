@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import au.barney.tripkit.data.model.SubItem
 import au.barney.tripkit.ui.viewmodel.ItemViewModel
 import au.barney.tripkit.ui.components.DraggableFAB
+import au.barney.tripkit.util.WeightUtils
 import coil.compose.AsyncImage
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -223,7 +224,13 @@ fun SubItemRow(
 
                 Column(modifier = Modifier.weight(1f)) {
                     Text(item.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    Text("Qty: ${item.quantity}", style = MaterialTheme.typography.bodyMedium)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(WeightUtils.formatWeight(item.weightGrams * item.quantity), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                        if (item.quantity > 1) {
+                            Spacer(Modifier.width(8.dp))
+                            Text("Qty: ${item.quantity}", style = MaterialTheme.typography.bodyMedium)
+                        }
+                    }
                     if (!item.notes.isNullOrEmpty()) {
                         Text(item.notes, style = MaterialTheme.typography.bodySmall)
                     }

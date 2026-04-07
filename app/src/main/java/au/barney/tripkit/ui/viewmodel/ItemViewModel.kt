@@ -107,12 +107,12 @@ class ItemViewModel(
 
     // ------------------ ADD ITEM ------------------
 
-    fun addItem(name: String, quantity: Int, notes: String?, isContainer: Boolean, imagePath: String? = null, addToMaster: Boolean = true, color: String = "#800000") {
+    fun addItem(name: String, quantity: Int, notes: String?, isContainer: Boolean, imagePath: String? = null, addToMaster: Boolean = true, color: String = "#800000", weightGrams: Int = 0) {
         if (currentEntryId == -1) return
 
         viewModelScope.launch {
             try {
-                repository.addItem(currentEntryId, name, quantity, notes, isContainer, imagePath, addToMaster, color)
+                repository.addItem(currentEntryId, name, quantity, notes, isContainer, imagePath, addToMaster, color, weightGrams)
             } catch (e: Exception) {
                 _error.value = e.message ?: "Unknown error"
             }
@@ -166,10 +166,10 @@ class ItemViewModel(
 
     // ------------------ UPDATE ITEM ------------------
 
-    fun updateItem(itemId: Int, name: String, quantity: Int, notes: String?, isContainer: Boolean, imagePath: String? = null, color: String = "#800000") {
+    fun updateItem(itemId: Int, name: String, quantity: Int, notes: String?, isContainer: Boolean, imagePath: String? = null, color: String = "#800000", weightGrams: Int? = null) {
         viewModelScope.launch {
             try {
-                repository.updateItem(itemId, name, quantity, notes, isContainer, imagePath, color)
+                repository.updateItem(itemId, name, quantity, notes, isContainer, imagePath, color, weightGrams)
             } catch (e: Exception) {
                 _error.value = e.message ?: "Unknown error"
             }
@@ -180,10 +180,10 @@ class ItemViewModel(
 
     fun getSubItems(itemId: Int): Flow<List<SubItem>> = repository.getSubItems(itemId)
 
-    fun addSubItem(itemId: Int, name: String, quantity: Int, notes: String?, imagePath: String? = null, addToMaster: Boolean = true) {
+    fun addSubItem(itemId: Int, name: String, quantity: Int, notes: String?, imagePath: String? = null, addToMaster: Boolean = true, weightGrams: Int = 0) {
         viewModelScope.launch {
             try {
-                repository.addSubItem(itemId, name, quantity, notes, imagePath, addToMaster)
+                repository.addSubItem(itemId, name, quantity, notes, imagePath, addToMaster, weightGrams)
             } catch (e: Exception) {
                 _error.value = e.message
             }

@@ -8,6 +8,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -15,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import au.barney.tripkit.data.model.Entry
 import au.barney.tripkit.ui.viewmodel.EntryViewModel
@@ -64,7 +66,7 @@ fun EditEntryScreen(
 
         EditEntryForm(
             entry = entry!!,
-            onSave = { name, qty, notes, type, imagePath, color ->
+            onSave = { name, qty, notes, type, imagePath, color, weightGrams ->
                 viewModel.updateEntry(
                     entryId = entryId,
                     name = name,
@@ -73,7 +75,8 @@ fun EditEntryScreen(
                     entryType = type,
                     listId = listId,
                     imagePath = imagePath,
-                    color = color
+                    color = color,
+                    weightGrams = weightGrams
                 )
                 onBack()
             },
@@ -86,7 +89,7 @@ fun EditEntryScreen(
 @Composable
 fun EditEntryForm(
     entry: Entry,
-    onSave: (String, Int, String, String, String?, String) -> Unit,
+    onSave: (String, Int, String, String, String?, String, Int) -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -97,6 +100,12 @@ fun EditEntryForm(
     var type by remember(entry) { mutableStateOf(entry.entry_type) }
     var imagePath by remember(entry) { mutableStateOf(entry.image_path) }
     var colorHex by remember(entry) { mutableStateOf(entry.color) }
+    
+    var weightInput by remember(entry) {
+        val grams = entry.weightGrams
+        mutableStateOf(if (grams >= 1000) (grams / 1000.0).toString() else grams.toString())
+    }
+    var weightUnit by remember(entry) { mutableStateOf(if (entry.weightGrams >= 1000) "kg" else "g") }
 
     val isContainer = entry.entry_type == "container"
 
@@ -126,8 +135,32 @@ fun EditEntryForm(
                 value = qty,
                 onValueChange = { qty = it.filter { c -> c.isDigit() } },
                 label = { Text("Quantity") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 modifier = Modifier.fillMaxWidth()
             )
+        }
+
+        item {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                OutlinedTextField(
+                    value = weightInput,
+                    onValueChange = { weightInput = it },
+                    label = { Text("Weight (Each)") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    modifier = Modifier.weight(1f)
+                )
+                Spacer(Modifier.width(8.dp))
+                var unitExpanded by remember { mutableStateOf(false) }
+                Box {
+                    TextButton(onClick = { unitExpanded = true }) {
+                        Text(weightUnit)
+                    }
+                    DropdownMenu(expanded = unitExpanded, onDismissRequest = { unitExpanded = false }) {
+                        DropdownMenuItem(text = { Text("g") }, onClick = { weightUnit = "g"; unitExpanded = false })
+                        DropdownMenuItem(text = { Text("kg") }, onClick = { weightUnit = "kg"; unitExpanded = false })
+                    }
+                }
+            }
         }
 
         item {
@@ -212,7 +245,12 @@ fun EditEntryForm(
             Button(
                 onClick = {
                     val qtyInt = qty.toIntOrNull() ?: 1
-                    onSave(name, qtyInt, notes, type, imagePath, colorHex)
+                    val weightGrams = try {
+                        val value = weightInput.toDouble()
+                        if (weightUnit == "kg") (value * 1000).toInt() else value.toInt()
+                    } catch (e: Exception) { entry.weightGrams }
+                    
+                    onSave(name, qtyInt, notes, type, imagePath, colorHex, weightGrams)
                 },
                 modifier = Modifier.fillMaxWidth()
             ) {

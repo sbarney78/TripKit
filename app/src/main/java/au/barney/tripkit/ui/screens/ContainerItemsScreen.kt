@@ -22,6 +22,7 @@ import au.barney.tripkit.ui.viewmodel.ItemViewModel
 import au.barney.tripkit.ui.viewmodel.MasterItemViewModel
 import au.barney.tripkit.ui.viewmodel.EntryViewModel
 import au.barney.tripkit.ui.components.DraggableFAB
+import au.barney.tripkit.util.WeightUtils
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -42,6 +43,7 @@ fun ContainerItemsScreen(
     onOpenSubContainer: (Int) -> Unit = {}
 ) {
     val itemsWithCount by viewModel.itemsWithCount.collectAsState()
+    val allSubItems by viewModel.allSubItems.collectAsState()
     val loading by viewModel.loading.collectAsState()
     val error by viewModel.error.collectAsState()
     val entries by entryViewModel.entries.collectAsState()
@@ -103,6 +105,8 @@ fun ContainerItemsScreen(
                 }
 
                 else -> {
+                    val subItemsByItemId = allSubItems.groupBy { it.item_id }
+
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(12.dp),
@@ -112,9 +116,19 @@ fun ContainerItemsScreen(
                             items = itemsWithCount,
                             key = { it.item.item_id }
                         ) { itemWithCount ->
+                            val item = itemWithCount.item
+                            val calculatedWeight = if (item.is_container) {
+                                val itemSubItems = subItemsByItemId[item.item_id] ?: emptyList()
+                                val contentsWeight = itemSubItems.sumOf { it.weightGrams * it.quantity }
+                                (item.weightGrams + contentsWeight) * item.quantity
+                            } else {
+                                item.weightGrams * item.quantity
+                            }
+
                             ItemRow(
-                                item = itemWithCount.item,
+                                item = item,
                                 subSubItemCount = itemWithCount.subSubItemCount,
+                                weightGrams = calculatedWeight,
                                 onToggleChecked = { checked ->
                                     viewModel.toggleItem(itemWithCount.item.item_id, checked)
                                 },
@@ -143,6 +157,7 @@ fun ContainerItemsScreen(
 fun ItemRow(
     item: Item,
     subSubItemCount: Int,
+    weightGrams: Int,
     onToggleChecked: (Boolean) -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
@@ -219,17 +234,27 @@ fun ItemRow(
                             color = if (item.is_checked == 1) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.onSurface
                         )
 
-                        if (!item.is_container) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
-                                text = "Qty: ${item.quantity}",
-                                style = MaterialTheme.typography.bodyMedium
-                            )
-                        } else {
-                            Text(
-                                text = "Sub-category (Tap to open)",
+                                text = WeightUtils.formatWeight(weightGrams),
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.primary
+                                color = MaterialTheme.colorScheme.outline
                             )
+                            if (item.quantity > 1 || !item.is_container) {
+                                Spacer(Modifier.width(8.dp))
+                                Text(
+                                    text = "Qty: ${item.quantity}",
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                            }
+                            if (item.is_container) {
+                                Spacer(Modifier.width(8.dp))
+                                Text(
+                                    text = "Sub-category (Tap to open)",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
                         }
 
                         if (!item.notes.isNullOrEmpty()) {

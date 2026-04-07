@@ -4,6 +4,7 @@ import au.barney.tripkit.data.local.TripKitDao
 import au.barney.tripkit.data.model.*
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -61,7 +62,8 @@ class TripKitRepository(private val dao: TripKitDao) {
                     list_id = listId,
                     is_checked = 0,
                     image_path = masterItem.image_path,
-                    color = masterItem.color
+                    color = masterItem.color,
+                    weightGrams = masterItem.weightGrams
                 )
             ).toInt()
 
@@ -77,7 +79,8 @@ class TripKitRepository(private val dao: TripKitDao) {
                             is_checked = 0,
                             is_container = masterSub.is_container,
                             image_path = masterSub.image_path,
-                            color = masterSub.color
+                            color = masterSub.color,
+                            weightGrams = masterSub.weightGrams
                         )
                     ).toInt()
                     
@@ -92,7 +95,8 @@ class TripKitRepository(private val dao: TripKitDao) {
                                     notes = null,
                                     is_checked = 0,
                                     image_path = masterSubSub.image_path,
-                                    color = masterSubSub.color
+                                    color = masterSubSub.color,
+                                    weightGrams = masterSubSub.weightGrams
                                 )
                             )
                         }
@@ -114,7 +118,8 @@ class TripKitRepository(private val dao: TripKitDao) {
                     list_id = listId,
                     is_checked = 0,
                     image_path = tEntry.image_path,
-                    color = tEntry.color
+                    color = tEntry.color,
+                    weightGrams = tEntry.weightGrams
                 )
             ).toInt()
 
@@ -130,7 +135,8 @@ class TripKitRepository(private val dao: TripKitDao) {
                             is_checked = 0,
                             is_container = tItem.is_container,
                             image_path = tItem.image_path,
-                            color = tItem.color
+                            color = tItem.color,
+                            weightGrams = tItem.weightGrams
                         )
                     ).toInt()
 
@@ -145,7 +151,8 @@ class TripKitRepository(private val dao: TripKitDao) {
                                     notes = null,
                                     is_checked = 0,
                                     image_path = tSub.image_path,
-                                    color = tSub.color
+                                    color = tSub.color,
+                                    weightGrams = tSub.weightGrams
                                 )
                             )
                         }
@@ -281,7 +288,8 @@ class TripKitRepository(private val dao: TripKitDao) {
         listId: Int,
         imagePath: String? = null,
         addToMaster: Boolean = false,
-        color: String = "#800000"
+        color: String = "#800000",
+        weightGrams: Int = 0
     ) {
         val entryId = dao.insertEntry(
             Entry(
@@ -292,7 +300,8 @@ class TripKitRepository(private val dao: TripKitDao) {
                 list_id = listId,
                 is_checked = 0,
                 image_path = imagePath,
-                color = color
+                color = color,
+                weightGrams = weightGrams
             )
         ).toInt()
 
@@ -310,7 +319,8 @@ class TripKitRepository(private val dao: TripKitDao) {
                         is_checked = 0, 
                         is_container = masterSub.is_container,
                         image_path = masterSub.image_path,
-                        color = masterSub.color
+                        color = masterSub.color,
+                        weightGrams = masterSub.weightGrams
                     )).toInt()
 
                     if (masterSub.is_container) {
@@ -323,7 +333,8 @@ class TripKitRepository(private val dao: TripKitDao) {
                                 notes = null,
                                 is_checked = 0,
                                 image_path = masterSubSub.image_path,
-                                color = masterSubSub.color
+                                color = masterSubSub.color,
+                                weightGrams = masterSubSub.weightGrams
                             ))
                         }
                     }
@@ -334,7 +345,7 @@ class TripKitRepository(private val dao: TripKitDao) {
         if (addToMaster) {
             val masterItems = dao.getMasterItemsSyncList()
             if (masterItems.none { it.name.equals(name, ignoreCase = true) }) {
-                dao.insertMasterItem(MasterItem(name = name, is_container = type == "container", default_quantity = quantity, image_path = imagePath, color = color))
+                dao.insertMasterItem(MasterItem(name = name, is_container = type == "container", default_quantity = quantity, image_path = imagePath, color = color, weightGrams = weightGrams))
             }
         }
     }
@@ -359,7 +370,8 @@ class TripKitRepository(private val dao: TripKitDao) {
         notes: String?,
         type: String,
         imagePath: String? = null,
-        color: String = "#800000"
+        color: String = "#800000",
+        weightGrams: Int? = null
     ) {
         val existing = dao.getEntry(entryId)
         if (existing != null) {
@@ -371,7 +383,8 @@ class TripKitRepository(private val dao: TripKitDao) {
                     entry_type = type,
                     image_path = imagePath,
                     last_updated = System.currentTimeMillis(),
-                    color = color
+                    color = color,
+                    weightGrams = weightGrams ?: existing.weightGrams
                 )
             )
         }
@@ -398,7 +411,8 @@ class TripKitRepository(private val dao: TripKitDao) {
         isContainer: Boolean,
         imagePath: String? = null,
         addToMaster: Boolean = true,
-        color: String = "#800000"
+        color: String = "#800000",
+        weightGrams: Int = 0
     ) {
         val itemId = dao.insertItem(
             Item(
@@ -409,7 +423,8 @@ class TripKitRepository(private val dao: TripKitDao) {
                 is_checked = 0,
                 is_container = isContainer,
                 image_path = imagePath,
-                color = color
+                color = color,
+                weightGrams = weightGrams
             )
         ).toInt()
 
@@ -428,7 +443,8 @@ class TripKitRepository(private val dao: TripKitDao) {
                             default_quantity = quantity,
                             is_container = isContainer,
                             image_path = imagePath,
-                            color = color
+                            color = color,
+                            weightGrams = weightGrams
                         ))
                     }
                     addedToMasterSub = true
@@ -439,7 +455,7 @@ class TripKitRepository(private val dao: TripKitDao) {
                 // Fallback: only add to top level IF it doesn't exist anywhere in Master level 1
                 val masterItems = dao.getMasterItemsSyncList()
                 if (masterItems.none { it.name.equals(name, ignoreCase = true) }) {
-                    dao.insertMasterItem(MasterItem(name = name, is_container = isContainer, default_quantity = quantity, image_path = imagePath, color = color))
+                    dao.insertMasterItem(MasterItem(name = name, is_container = isContainer, default_quantity = quantity, image_path = imagePath, color = color, weightGrams = weightGrams))
                 }
             }
         }
@@ -473,7 +489,8 @@ class TripKitRepository(private val dao: TripKitDao) {
         notes: String?,
         isContainer: Boolean,
         imagePath: String? = null,
-        color: String = "#800000"
+        color: String = "#800000",
+        weightGrams: Int? = null
     ) {
         val existing = dao.getItem(itemId)
         if (existing != null) {
@@ -485,7 +502,8 @@ class TripKitRepository(private val dao: TripKitDao) {
                     is_container = isContainer,
                     image_path = imagePath,
                     last_updated = System.currentTimeMillis(),
-                    color = color
+                    color = color,
+                    weightGrams = weightGrams ?: existing.weightGrams
                 )
             )
         }
@@ -508,7 +526,8 @@ class TripKitRepository(private val dao: TripKitDao) {
         quantity: Int,
         notes: String?,
         imagePath: String? = null,
-        addToMaster: Boolean = false
+        addToMaster: Boolean = false,
+        weightGrams: Int = 0
     ) {
         dao.insertSubItem(
             SubItem(
@@ -517,7 +536,8 @@ class TripKitRepository(private val dao: TripKitDao) {
                 quantity = quantity,
                 notes = notes,
                 is_checked = 0,
-                image_path = imagePath
+                image_path = imagePath,
+                weightGrams = weightGrams
             )
         )
 
@@ -534,7 +554,8 @@ class TripKitRepository(private val dao: TripKitDao) {
                             name = name,
                             default_quantity = quantity,
                             image_path = imagePath,
-                            color = item.color
+                            color = item.color,
+                            weightGrams = weightGrams
                         ))
                     }
                 }
@@ -717,8 +738,8 @@ class TripKitRepository(private val dao: TripKitDao) {
 
     fun getMasterItemsWithCount(): Flow<List<MasterItemWithCount>> = dao.getMasterItemsWithCount()
 
-    suspend fun addMasterItem(name: String, isContainer: Boolean, imagePath: String? = null, color: String = "#800000") {
-        dao.insertMasterItem(MasterItem(name = name, is_container = isContainer, image_path = imagePath, color = color))
+    suspend fun addMasterItem(name: String, isContainer: Boolean, imagePath: String? = null, color: String = "#800000", weightGrams: Int = 0) {
+        dao.insertMasterItem(MasterItem(name = name, is_container = isContainer, image_path = imagePath, color = color, weightGrams = weightGrams))
     }
 
     suspend fun updateMasterItem(item: MasterItem) {
@@ -726,6 +747,8 @@ class TripKitRepository(private val dao: TripKitDao) {
         // FLOW ON: Template and List Inventory
         dao.updateTemplateEntryColorByName(item.name, item.color)
         dao.updateEntryColorByName(item.name, item.color)
+        dao.updateTemplateEntryWeightByName(item.name, item.weightGrams)
+        dao.updateEntryWeightByName(item.name, item.weightGrams)
     }
 
     suspend fun deleteMasterItem(id: Int) = dao.deleteMasterItem(id)
@@ -743,6 +766,8 @@ class TripKitRepository(private val dao: TripKitDao) {
         // FLOW ON: Template and List Inventory
         dao.updateTemplateItemColorByName(item.name, item.color)
         dao.updateItemColorByName(item.name, item.color)
+        dao.updateTemplateItemWeightByName(item.name, item.weightGrams)
+        dao.updateItemWeightByName(item.name, item.weightGrams)
     }
 
     suspend fun deleteMasterSubItem(id: Int) = dao.deleteMasterSubItem(id)
@@ -758,6 +783,8 @@ class TripKitRepository(private val dao: TripKitDao) {
         // FLOW ON: Template and List Inventory
         dao.updateTemplateSubItemColorByName(item.name, item.color)
         dao.updateSubItemColorByName(item.name, item.color)
+        dao.updateTemplateSubItemWeightByName(item.name, item.weightGrams)
+        dao.updateSubItemWeightByName(item.name, item.weightGrams)
     }
 
     suspend fun deleteMasterSubSubItem(id: Int) = dao.deleteMasterSubSubItem(id)
@@ -935,7 +962,8 @@ class TripKitRepository(private val dao: TripKitDao) {
                 is_container = mItem.is_container,
                 image_path = mItem.image_path,
                 color = mItem.color,
-                is_checked = 1
+                is_checked = 1,
+                weightGrams = mItem.weightGrams
             )).toInt()
 
             if (mItem.is_container) {
@@ -948,7 +976,8 @@ class TripKitRepository(private val dao: TripKitDao) {
                         is_container = mSub.is_container,
                         image_path = mSub.image_path,
                         color = mSub.color,
-                        is_checked = 1
+                        is_checked = 1,
+                        weightGrams = mSub.weightGrams
                     )).toInt()
 
                     if (mSub.is_container) {
@@ -961,7 +990,8 @@ class TripKitRepository(private val dao: TripKitDao) {
                                 image_path = mSubSub.image_path,
                                 is_container = mSubSub.is_container,
                                 is_checked = 1,
-                                color = mSubSub.color
+                                color = mSubSub.color,
+                                weightGrams = mSubSub.weightGrams
                             ))
                         }
                     }
@@ -983,7 +1013,8 @@ class TripKitRepository(private val dao: TripKitDao) {
             is_container = mItem.is_container,
             image_path = mItem.image_path,
             color = mItem.color,
-            is_checked = 1
+            is_checked = 1,
+            weightGrams = mItem.weightGrams
         )).toInt()
 
         if (mItem.is_container) {
@@ -996,7 +1027,8 @@ class TripKitRepository(private val dao: TripKitDao) {
                     is_container = mSub.is_container,
                     image_path = mSub.image_path,
                     color = mSub.color,
-                    is_checked = 1
+                    is_checked = 1,
+                    weightGrams = mSub.weightGrams
                 )).toInt()
 
                 if (mSub.is_container) {
@@ -1009,7 +1041,8 @@ class TripKitRepository(private val dao: TripKitDao) {
                             image_path = mSubSub.image_path,
                             is_container = mSubSub.is_container,
                             is_checked = 1,
-                            color = mSubSub.color
+                            color = mSubSub.color,
+                            weightGrams = mSubSub.weightGrams
                         ))
                     }
                 }
@@ -1064,4 +1097,68 @@ class TripKitRepository(private val dao: TripKitDao) {
     suspend fun deleteTemplateEntry(id: Int) = dao.deleteTemplateEntry(id)
     suspend fun deleteTemplateItem(id: Int) = dao.deleteTemplateItem(id)
     suspend fun deleteTemplateSubItem(id: Int) = dao.deleteTemplateSubItem(id)
+
+    // ------------------ WEIGHT CALCULATIONS ------------------
+
+    fun getListWeightDetails(listId: Int): Flow<WeightDetails> {
+        return combine(
+            dao.getEntries(listId),
+            dao.getAllItemsForList(listId),
+            dao.getAllSubItemsForList(listId)
+        ) { entries, items, subItems ->
+            val subItemsByItemId = subItems.groupBy { it.item_id }
+            val itemsByEntryId = items.groupBy { it.entry_id }
+
+            var totalGearWeight = 0
+
+            entries.forEach { entry ->
+                var contentsWeight = 0
+                if (entry.entry_type == "container") {
+                    val entryItems = itemsByEntryId[entry.entry_id] ?: emptyList()
+                    entryItems.forEach { item ->
+                        var itemContentWeight = 0
+                        if (item.is_container) {
+                            val itemSubItems = subItemsByItemId[item.item_id] ?: emptyList()
+                            itemContentWeight = itemSubItems.sumOf { it.weightGrams * it.quantity }
+                        } else {
+                            itemContentWeight = item.weightGrams * item.quantity
+                        }
+                        // Add sub-container's own weight if it has one
+                        contentsWeight += (item.weightGrams + itemContentWeight) * item.quantity
+                    }
+                } else {
+                    contentsWeight = entry.weightGrams * entry.quantity
+                }
+                
+                // If it's a top-level container, its own weight is entry.weightGrams
+                if (entry.entry_type == "container") {
+                    totalGearWeight += (entry.weightGrams + contentsWeight) * entry.quantity
+                } else {
+                    totalGearWeight += contentsWeight
+                }
+            }
+
+            WeightDetails(totalGearWeightGrams = totalGearWeight)
+        }
+    }
+
+    // ------------------ EXTRA WEIGHT PROFILES ------------------
+
+    fun getExtraWeightProfiles(): Flow<List<ExtraWeightProfile>> = dao.getExtraWeightProfiles()
+
+    suspend fun addExtraWeightProfile(name: String, weightGrams: Int, category: String) {
+        dao.insertExtraWeightProfile(ExtraWeightProfile(name = name, weightGrams = weightGrams, category = category))
+    }
+
+    suspend fun updateExtraWeightProfile(profile: ExtraWeightProfile) {
+        dao.updateExtraWeightProfile(profile)
+    }
+
+    suspend fun deleteExtraWeightProfile(id: Int) {
+        dao.deleteExtraWeightProfile(id)
+    }
 }
+
+data class WeightDetails(
+    val totalGearWeightGrams: Int
+)

@@ -44,7 +44,9 @@ data class TemplateEntry(
     @ColumnInfo(defaultValue = "")
     val sync_id: String = UUID.randomUUID().toString(),
     @ColumnInfo(defaultValue = "0")
-    val last_updated: Long = System.currentTimeMillis()
+    val last_updated: Long = System.currentTimeMillis(),
+    @ColumnInfo(defaultValue = "0")
+    val weightGrams: Int = 0
 )
 
 @Entity(
@@ -73,7 +75,9 @@ data class TemplateItem(
     @ColumnInfo(defaultValue = "")
     val sync_id: String = UUID.randomUUID().toString(),
     @ColumnInfo(defaultValue = "0")
-    val last_updated: Long = System.currentTimeMillis()
+    val last_updated: Long = System.currentTimeMillis(),
+    @ColumnInfo(defaultValue = "0")
+    val weightGrams: Int = 0
 )
 
 @Entity(
@@ -104,5 +108,7 @@ data class TemplateSubItem(
     @ColumnInfo(defaultValue = "0")
     val last_updated: Long = System.currentTimeMillis(),
     @ColumnInfo(defaultValue = "#800000")
-    val color: String = "#800000"
+    val color: String = "#800000",
+    @ColumnInfo(defaultValue = "0")
+    val weightGrams: Int = 0
 )

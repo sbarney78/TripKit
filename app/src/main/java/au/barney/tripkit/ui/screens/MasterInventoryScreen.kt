@@ -11,6 +11,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
@@ -24,11 +25,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import au.barney.tripkit.data.model.MasterItem
-import au.barney.tripkit.data.model.MasterItemWithCount
 import au.barney.tripkit.ui.viewmodel.MasterItemViewModel
 import au.barney.tripkit.ui.components.DraggableFAB
+import au.barney.tripkit.util.WeightUtils
 import coil.compose.AsyncImage
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -44,6 +46,8 @@ fun MasterInventoryScreen(
     var isContainer by remember { mutableStateOf(false) }
     var itemColor by remember { mutableStateOf("#800000") }
     var imagePath by remember { mutableStateOf<String?>(null) }
+    var weightInput by remember { mutableStateOf("") }
+    var weightUnit by remember { mutableStateOf("g") } // "g" or "kg"
 
     var showEditDialog by remember { mutableStateOf(false) }
     var itemToEdit by remember { mutableStateOf<MasterItem?>(null) }
@@ -62,6 +66,8 @@ fun MasterInventoryScreen(
                 isContainer = false
                 imagePath = null
                 itemColor = "#800000"
+                weightInput = ""
+                weightUnit = "g"
             },
             title = { Text("Add Master Item") },
             text = {
@@ -72,6 +78,28 @@ fun MasterInventoryScreen(
                         label = { Text("Item Name") },
                         modifier = Modifier.fillMaxWidth()
                     )
+                    
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                        OutlinedTextField(
+                            value = weightInput,
+                            onValueChange = { weightInput = it },
+                            label = { Text("Weight") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                            modifier = Modifier.weight(1f)
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        var unitExpanded by remember { mutableStateOf(false) }
+                        Box {
+                            TextButton(onClick = { unitExpanded = true }) {
+                                Text(weightUnit)
+                            }
+                            DropdownMenu(expanded = unitExpanded, onDismissRequest = { unitExpanded = false }) {
+                                DropdownMenuItem(text = { Text("g") }, onClick = { weightUnit = "g"; unitExpanded = false })
+                                DropdownMenuItem(text = { Text("kg") }, onClick = { weightUnit = "kg"; unitExpanded = false })
+                            }
+                        }
+                    }
+
                     Row(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -111,17 +139,18 @@ fun MasterInventoryScreen(
             confirmButton = {
                 Button(onClick = {
                     if (newItemName.isNotBlank()) {
-                        // Assuming addMasterItem needs to be updated or it will ignore the color if not updated yet
-                        // I'll check ViewModel later, but for now I'll use the copy/update pattern if needed
-                        viewModel.addMasterItem(newItemName, isContainer, imagePath)
-                        // If addMasterItem doesn't take color, we might need a custom add or update after add.
-                        // But let's assume we can update it or add it.
-                        // Actually MasterItemViewModel.addMasterItem doesn't take color yet. 
-                        // I'll update MasterItemViewModel.kt too.
+                        val weightGrams = try {
+                            val value = weightInput.toDouble()
+                            if (weightUnit == "kg") (value * 1000).toInt() else value.toInt()
+                        } catch (e: Exception) { 0 }
+                        
+                        viewModel.addMasterItem(newItemName, isContainer, imagePath, itemColor, weightGrams)
                         newItemName = ""
                         isContainer = false
                         imagePath = null
                         itemColor = "#800000"
+                        weightInput = ""
+                        weightUnit = "g"
                         showAddDialog = false
                     }
                 }) { Text("Add") }
@@ -133,6 +162,7 @@ fun MasterInventoryScreen(
                     isContainer = false
                     imagePath = null
                     itemColor = "#800000"
+                    weightInput = ""
                 }) { Text("Cancel") }
             }
         )
@@ -143,6 +173,11 @@ fun MasterInventoryScreen(
         var editIsContainer by remember { mutableStateOf(itemToEdit!!.is_container) }
         var editImagePath by remember { mutableStateOf(itemToEdit!!.image_path) }
         var editColor by remember { mutableStateOf(itemToEdit!!.color) }
+        var editWeightInput by remember { 
+            val grams = itemToEdit!!.weightGrams
+            mutableStateOf(if (grams >= 1000) (grams / 1000.0).toString() else grams.toString())
+        }
+        var editWeightUnit by remember { mutableStateOf(if (itemToEdit!!.weightGrams >= 1000) "kg" else "g") }
 
         AlertDialog(
             onDismissRequest = { showEditDialog = false },
@@ -155,6 +190,28 @@ fun MasterInventoryScreen(
                         label = { Text("Item Name") },
                         modifier = Modifier.fillMaxWidth()
                     )
+
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                        OutlinedTextField(
+                            value = editWeightInput,
+                            onValueChange = { editWeightInput = it },
+                            label = { Text("Weight") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                            modifier = Modifier.weight(1f)
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        var unitExpanded by remember { mutableStateOf(false) }
+                        Box {
+                            TextButton(onClick = { unitExpanded = true }) {
+                                Text(editWeightUnit)
+                            }
+                            DropdownMenu(expanded = unitExpanded, onDismissRequest = { unitExpanded = false }) {
+                                DropdownMenuItem(text = { Text("g") }, onClick = { editWeightUnit = "g"; unitExpanded = false })
+                                DropdownMenuItem(text = { Text("kg") }, onClick = { editWeightUnit = "kg"; unitExpanded = false })
+                            }
+                        }
+                    }
+
                     Row(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -194,11 +251,17 @@ fun MasterInventoryScreen(
             confirmButton = {
                 Button(onClick = {
                     if (editName.isNotBlank()) {
+                        val weightGrams = try {
+                            val value = editWeightInput.toDouble()
+                            if (editWeightUnit == "kg") (value * 1000).toInt() else value.toInt()
+                        } catch (e: Exception) { itemToEdit!!.weightGrams }
+
                         viewModel.updateMasterItem(itemToEdit!!.copy(
                             name = editName, 
                             is_container = editIsContainer,
                             image_path = editImagePath,
-                            color = editColor
+                            color = editColor,
+                            weightGrams = weightGrams
                         ))
                         showEditDialog = false
                         itemToEdit = null
@@ -320,8 +383,12 @@ fun MasterItemRow(
 
                     Column(modifier = Modifier.weight(1f)) {
                         Text(item.name, style = MaterialTheme.typography.titleMedium)
-                        if (item.is_container) {
-                            Text("Container (Tap to open)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(WeightUtils.formatWeight(item.weightGrams), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                            if (item.is_container) {
+                                Spacer(Modifier.width(8.dp))
+                                Text("Container (Tap to open)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+                            }
                         }
                     }
                     

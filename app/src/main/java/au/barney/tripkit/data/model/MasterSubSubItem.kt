@@ -33,5 +33,7 @@ data class MasterSubSubItem(
     @ColumnInfo(defaultValue = "0")
     val last_updated: Long = System.currentTimeMillis(),
     @ColumnInfo(defaultValue = "#800000")
-    val color: String = "#800000"
+    val color: String = "#800000",
+    @ColumnInfo(defaultValue = "0")
+    val weightGrams: Int = 0
 )

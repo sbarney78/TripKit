@@ -35,7 +35,9 @@ data class Entry(
     val last_updated: Long = System.currentTimeMillis(),
     val image_path: String? = null,
     @ColumnInfo(defaultValue = "#800000") // Default Maroon
-    val color: String = "#800000"
+    val color: String = "#800000",
+    @ColumnInfo(defaultValue = "0")
+    val weightGrams: Int = 0
 )
 
 data class EntryWithCount(

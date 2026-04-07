@@ -151,7 +151,25 @@ fun AppNavGraph(modifier: Modifier = Modifier) {
                 onAddEntry = { navController.navigate("add_entry/$listId") },
                 onEditEntry = { entryId -> navController.navigate("edit_entry/$listId/$entryId") },
                 onBack = { navController.popBackStack() },
-                onViewPdf = { path -> navController.navigate("pdf_viewer/${Uri.encode(path)}") }
+                onViewPdf = { path -> navController.navigate("pdf_viewer/${Uri.encode(path)}") },
+                onOpenWeight = { id, name -> navController.navigate("weight/$id/${Uri.encode(name)}") }
+            )
+        }
+
+        composable(
+            route = "weight/{listId}/{listName}",
+            arguments = listOf(
+                navArgument("listId") { type = NavType.IntType },
+                navArgument("listName") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val listId = backStackEntry.arguments?.getInt("listId") ?: 0
+            val listName = backStackEntry.arguments?.getString("listName") ?: ""
+            WeightScreen(
+                listId = listId,
+                listName = listName,
+                viewModel = listViewModel,
+                onBack = { navController.popBackStack() }
             )
         }
 

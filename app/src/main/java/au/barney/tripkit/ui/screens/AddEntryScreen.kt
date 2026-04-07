@@ -8,6 +8,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -15,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import au.barney.tripkit.ui.viewmodel.EntryViewModel
 import au.barney.tripkit.ui.viewmodel.MasterItemViewModel
@@ -33,6 +35,9 @@ fun AddEntryScreen(
     var type by remember { mutableStateOf("single") }
     var colorHex by remember { mutableStateOf("#800000") }
     var imagePath by remember { mutableStateOf<String?>(null) }
+    
+    var weightInput by remember { mutableStateOf("") }
+    var weightUnit by remember { mutableStateOf("g") }
 
     val masterItems by masterViewModel.masterItems.collectAsState()
     var showDropdown by remember { mutableStateOf(false) }
@@ -94,6 +99,8 @@ fun AddEntryScreen(
                                             type = if (item.is_container) "container" else "single"
                                             imagePath = item.image_path
                                             colorHex = item.color
+                                            weightInput = if (item.weightGrams >= 1000) (item.weightGrams / 1000.0).toString() else item.weightGrams.toString()
+                                            weightUnit = if (item.weightGrams >= 1000) "kg" else "g"
                                             showDropdown = false
                                         }
                                     )
@@ -109,8 +116,32 @@ fun AddEntryScreen(
                     value = quantity,
                     onValueChange = { quantity = it },
                     label = { Text("Quantity") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth()
                 )
+            }
+
+            item {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                    OutlinedTextField(
+                        value = weightInput,
+                        onValueChange = { weightInput = it },
+                        label = { Text("Weight (Each)") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        modifier = Modifier.weight(1f)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    var unitExpanded by remember { mutableStateOf(false) }
+                    Box {
+                        TextButton(onClick = { unitExpanded = true }) {
+                            Text(weightUnit)
+                        }
+                        DropdownMenu(expanded = unitExpanded, onDismissRequest = { unitExpanded = false }) {
+                            DropdownMenuItem(text = { Text("g") }, onClick = { weightUnit = "g"; unitExpanded = false })
+                            DropdownMenuItem(text = { Text("kg") }, onClick = { weightUnit = "kg"; unitExpanded = false })
+                        }
+                    }
+                }
             }
 
             item {
@@ -188,12 +219,17 @@ fun AddEntryScreen(
                 Button(
                     onClick = {
                         val qty = quantity.toIntOrNull() ?: 1
+                        val weightGrams = try {
+                            val value = weightInput.toDouble()
+                            if (weightUnit == "kg") (value * 1000).toInt() else value.toInt()
+                        } catch (e: Exception) { 0 }
+
                         val exactMatch = masterItems.any { it.name.equals(name, ignoreCase = true) }
 
                         if (!exactMatch && name.isNotBlank()) {
                             showMasterDialog = true
                         } else {
-                            viewModel.addEntry(listId, name, qty, notes, type, imagePath, addToMaster = false, color = colorHex)
+                            viewModel.addEntry(listId, name, qty, notes, type, imagePath, addToMaster = false, color = colorHex, weightGrams = weightGrams)
                             onDone()
                         }
                     },
@@ -212,14 +248,26 @@ fun AddEntryScreen(
             text = { Text("'$name' is not in your Master Inventory. Would you like to add it for future use?") },
             confirmButton = {
                 Button(onClick = {
-                    viewModel.addEntry(listId, name, quantity.toIntOrNull() ?: 1, notes, type, imagePath, addToMaster = true, color = colorHex)
+                    val qty = quantity.toIntOrNull() ?: 1
+                    val weightGrams = try {
+                        val value = weightInput.toDouble()
+                        if (weightUnit == "kg") (value * 1000).toInt() else value.toInt()
+                    } catch (e: Exception) { 0 }
+
+                    viewModel.addEntry(listId, name, qty, notes, type, imagePath, addToMaster = true, color = colorHex, weightGrams = weightGrams)
                     showMasterDialog = false
                     onDone()
                 }) { Text("Add & Save") }
             },
             dismissButton = {
                 TextButton(onClick = {
-                    viewModel.addEntry(listId, name, quantity.toIntOrNull() ?: 1, notes, type, imagePath, addToMaster = false, color = colorHex)
+                    val qty = quantity.toIntOrNull() ?: 1
+                    val weightGrams = try {
+                        val value = weightInput.toDouble()
+                        if (weightUnit == "kg") (value * 1000).toInt() else value.toInt()
+                    } catch (e: Exception) { 0 }
+
+                    viewModel.addEntry(listId, name, qty, notes, type, imagePath, addToMaster = false, color = colorHex, weightGrams = weightGrams)
                     showMasterDialog = false
                     onDone()
                 }) { Text("Save Only") }

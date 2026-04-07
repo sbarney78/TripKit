@@ -2,8 +2,11 @@ package au.barney.tripkit.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import au.barney.tripkit.data.model.ExtraWeightProfile
 import au.barney.tripkit.data.model.ListItem
 import au.barney.tripkit.data.repository.TripKitRepository
+import au.barney.tripkit.data.repository.WeightDetails
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
@@ -25,8 +28,12 @@ class ListViewModel(
     private val _packingProgress = MutableStateFlow<Map<Int, Pair<Int, Int>>>(emptyMap())
     val packingProgress: StateFlow<Map<Int, Pair<Int, Int>>> = _packingProgress
 
+    private val _extraWeightProfiles = MutableStateFlow<List<ExtraWeightProfile>>(emptyList())
+    val extraWeightProfiles: StateFlow<List<ExtraWeightProfile>> = _extraWeightProfiles
+
     init {
         loadLists()
+        loadExtraWeightProfiles()
     }
 
     fun loadLists() {
@@ -104,6 +111,32 @@ class ListViewModel(
                 _error.value = e.message ?: "Unknown error"
             }
             _loading.value = false
+        }
+    }
+
+    // --- WEIGHTS ---
+
+    fun getListWeightDetails(listId: Int): Flow<WeightDetails> {
+        return repository.getListWeightDetails(listId)
+    }
+
+    fun loadExtraWeightProfiles() {
+        viewModelScope.launch {
+            repository.getExtraWeightProfiles().collect { profiles ->
+                _extraWeightProfiles.value = profiles
+            }
+        }
+    }
+
+    fun addExtraWeightProfile(name: String, weightGrams: Int, category: String) {
+        viewModelScope.launch {
+            repository.addExtraWeightProfile(name, weightGrams, category)
+        }
+    }
+
+    fun deleteExtraWeightProfile(id: Int) {
+        viewModelScope.launch {
+            repository.deleteExtraWeightProfile(id)
         }
     }
 }
