@@ -63,11 +63,12 @@ class ListViewModel(
         showInventory: Boolean = true,
         showMenu: Boolean = true,
         showIngredients: Boolean = true,
-        showItinerary: Boolean = true
+        showItinerary: Boolean = true,
+        templateId: Int? = null
     ) {
         viewModelScope.launch {
             try {
-                repository.addList(name, showInventory, showMenu, showIngredients, showItinerary)
+                repository.addList(name, showInventory, showMenu, showIngredients, showItinerary, templateId)
             } catch (e: Exception) {
                 _error.value = e.message ?: "Unknown error"
             }

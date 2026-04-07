@@ -19,7 +19,9 @@ data class MasterItem(
     @ColumnInfo(defaultValue = "")
     val sync_id: String = UUID.randomUUID().toString(),
     @ColumnInfo(defaultValue = "0")
-    val last_updated: Long = System.currentTimeMillis()
+    val last_updated: Long = System.currentTimeMillis(),
+    @ColumnInfo(defaultValue = "#800000") // Default Maroon
+    val color: String = "#800000"
 )
 
 /**

@@ -19,9 +19,13 @@ import au.barney.tripkit.data.model.*
         MasterItem::class,
         MasterSubItem::class,
         MasterSubSubItem::class,
-        ItineraryItem::class
+        ItineraryItem::class,
+        Template::class,
+        TemplateEntry::class,
+        TemplateItem::class,
+        TemplateSubItem::class
     ],
-    version = 12,
+    version = 16,
     autoMigrations = [
         AutoMigration(from = 5, to = 6),
         AutoMigration(from = 6, to = 7),
@@ -29,7 +33,11 @@ import au.barney.tripkit.data.model.*
         AutoMigration(from = 8, to = 9),
         AutoMigration(from = 9, to = 10),
         AutoMigration(from = 10, to = 11),
-        AutoMigration(from = 11, to = 12)
+        AutoMigration(from = 11, to = 12),
+        AutoMigration(from = 12, to = 13),
+        AutoMigration(from = 13, to = 14),
+        AutoMigration(from = 14, to = 15),
+        AutoMigration(from = 15, to = 16)
     ],
     exportSchema = true
 )

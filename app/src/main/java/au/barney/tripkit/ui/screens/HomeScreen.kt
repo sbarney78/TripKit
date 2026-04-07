@@ -1,6 +1,5 @@
 package au.barney.tripkit.ui.screens
 
-import android.content.Context
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -16,15 +15,37 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import au.barney.tripkit.data.model.FullTripData
 import au.barney.tripkit.data.model.ListItem
-import au.barney.tripkit.ui.viewmodel.*
+import au.barney.tripkit.data.model.FullTripData
+import au.barney.tripkit.ui.components.DraggableFAB
+import au.barney.tripkit.ui.viewmodel.EntryViewModel
+import au.barney.tripkit.ui.viewmodel.IngredientGroupViewModel
+import au.barney.tripkit.ui.viewmodel.IngredientViewModel
+import au.barney.tripkit.ui.viewmodel.ItineraryViewModel
+import au.barney.tripkit.ui.viewmodel.ListViewModel
+import au.barney.tripkit.ui.viewmodel.MenuViewModel
+import au.barney.tripkit.ui.viewmodel.TemplateViewModel
+import au.barney.tripkit.ui.viewmodel.ItemViewModel
 import au.barney.tripkit.util.BackupManager
 import au.barney.tripkit.util.DataSharingManager
 import au.barney.tripkit.util.PdfGenerator
-import au.barney.tripkit.ui.components.DraggableFAB
 import kotlinx.coroutines.launch
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun HomeIconButton(icon: androidx.compose.ui.graphics.vector.ImageVector, description: String, onClick: () -> Unit) {
+    TooltipBox(
+        positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
+        tooltip = { PlainTooltip { Text(description) } },
+        state = rememberTooltipState()
+    ) {
+        IconButton(onClick = onClick) {
+            Icon(icon, contentDescription = description)
+        }
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -36,12 +57,15 @@ fun HomeScreen(
     ingredientGroupViewModel: IngredientGroupViewModel,
     ingredientViewModel: IngredientViewModel,
     itineraryViewModel: ItineraryViewModel,
+    templateViewModel: TemplateViewModel,
     onOpenInventory: (Int) -> Unit,
     onOpenMenu: (Int) -> Unit,
     onOpenIngredients: (Int) -> Unit,
     onOpenItinerary: (Int) -> Unit,
     onOpenMasterInventory: () -> Unit,
-    onViewPdf: (String) -> Unit
+    onViewPdf: (String) -> Unit,
+    onCreateTemplate: () -> Unit,
+    onEditTemplate: (Int) -> Unit
 ) {
     val lists by viewModel.lists.collectAsState()
     val progress by viewModel.packingProgress.collectAsState()
@@ -67,6 +91,10 @@ fun HomeScreen(
     var duplicateListName by remember { mutableStateOf("") }
 
     var contextMenuVisible by remember { mutableStateOf<Int?>(null) }
+
+    // Master Template Dropdown
+    var templateMenuExpanded by remember { mutableStateOf(false) }
+    val templates by templateViewModel.templates.collectAsState()
 
     // Sync / Import State
     var dataToImport by remember { mutableStateOf<FullTripData?>(null) }
@@ -132,53 +160,79 @@ fun HomeScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("TripKit Lists", fontWeight = FontWeight.Bold) },
-                actions = {
-                    TooltipBox(
-                        positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
-                        tooltip = { PlainTooltip { Text("Master Inventory") } },
-                        state = rememberTooltipState()
-                    ) {
-                        IconButton(onClick = onOpenMasterInventory) {
-                            Icon(Icons.Default.Inventory, contentDescription = "Master Inventory", tint = MaterialTheme.colorScheme.onPrimaryContainer)
-                        }
-                    }
-                    TooltipBox(
-                        positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
-                        tooltip = { PlainTooltip { Text("Import Trip") } },
-                        state = rememberTooltipState()
-                    ) {
-                        IconButton(onClick = { importLauncher.launch(arrayOf("application/json")) }) {
-                            Icon(Icons.Default.Input, contentDescription = "Import Trip", tint = MaterialTheme.colorScheme.onPrimaryContainer)
-                        }
-                    }
-                    TooltipBox(
-                        positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
-                        tooltip = { PlainTooltip { Text("Full Backup") } },
-                        state = rememberTooltipState()
-                    ) {
-                        IconButton(onClick = { BackupManager.backupDatabase(context) }) {
-                            Icon(Icons.Default.Backup, contentDescription = "Full Backup", tint = MaterialTheme.colorScheme.onPrimaryContainer)
-                        }
-                    }
-                    TooltipBox(
-                        positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
-                        tooltip = { PlainTooltip { Text("Full Restore") } },
-                        state = rememberTooltipState()
-                    ) {
-                        IconButton(onClick = { restoreLauncher.launch(arrayOf("application/octet-stream", "application/x-sqlite3")) }) {
-                            Icon(Icons.Default.SettingsBackupRestore, contentDescription = "Full Restore", tint = MaterialTheme.colorScheme.onPrimaryContainer)
-                        }
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                    actionIconContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                    navigationIconContentColor = MaterialTheme.colorScheme.onPrimaryContainer
+            Column {
+                TopAppBar(
+                    title = { 
+                        Text(
+                            "TripKit", 
+                            fontWeight = FontWeight.Bold, 
+                            modifier = Modifier.fillMaxWidth(),
+                            textAlign = TextAlign.Center
+                        ) 
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
                 )
-            )
+                
+                // Icon row below the title
+                Surface(
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 8.dp),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        HomeIconButton(Icons.Default.Inventory, "Master Inventory", onOpenMasterInventory)
+                        
+                        Box {
+                            HomeIconButton(Icons.Default.DashboardCustomize, "Master Templates") {
+                                templateMenuExpanded = true
+                            }
+                            DropdownMenu(
+                                expanded = templateMenuExpanded,
+                                onDismissRequest = { templateMenuExpanded = false }
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text("Create Template", fontWeight = FontWeight.Bold) },
+                                    leadingIcon = { Icon(Icons.Default.Add, contentDescription = null) },
+                                    onClick = {
+                                        templateMenuExpanded = false
+                                        onCreateTemplate()
+                                    }
+                                )
+                                if (templates.isNotEmpty()) {
+                                    HorizontalDivider()
+                                    templates.forEach { template ->
+                                        DropdownMenuItem(
+                                            text = { Text(template.name) },
+                                            onClick = {
+                                                templateMenuExpanded = false
+                                                onEditTemplate(template.id)
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        HomeIconButton(Icons.Default.Input, "Import Trip") {
+                            importLauncher.launch(arrayOf("application/json"))
+                        }
+                        HomeIconButton(Icons.Default.Backup, "Full Backup") {
+                            BackupManager.backupDatabase(context)
+                        }
+                        HomeIconButton(Icons.Default.SettingsBackupRestore, "Full Restore") {
+                            restoreLauncher.launch(arrayOf("application/octet-stream", "application/x-sqlite3"))
+                        }
+                    }
+                }
+            }
         },
         floatingActionButton = {
             DraggableFAB(onClick = { showAddDialog = true }) {
@@ -287,7 +341,7 @@ fun HomeScreen(
                             // SECOND ROW: PROGRESS BAR
                             if (list.show_inventory) {
                                 if (listProgress.second > 0) {
-                                    val percent = listProgress.first.toFloat() / listProgress.second
+                                    val percent = (listProgress.first.toFloat() / listProgress.second)
                                     LinearProgressIndicator(
                                         progress = { percent },
                                         modifier = Modifier.fillMaxWidth().height(8.dp),
@@ -395,6 +449,9 @@ fun HomeScreen(
     }
 
     if (showAddDialog) {
+        var selectedTemplateId by remember { mutableIntStateOf(0) }
+        var showTemplateSelector by remember { mutableStateOf(false) }
+
         AlertDialog(
             onDismissRequest = { showAddDialog = false },
             title = { Text("Create New List") },
@@ -410,9 +467,30 @@ fun HomeScreen(
                     Text("Select lists to include:", fontWeight = FontWeight.SemiBold)
                     Column {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Checkbox(checked = addInventory, onCheckedChange = { addInventory = it })
+                            Checkbox(checked = addInventory, onCheckedChange = { 
+                                addInventory = it 
+                                if (!it) selectedTemplateId = 0
+                            })
                             Text("Inventory")
                         }
+                        
+                        if (addInventory && templates.isNotEmpty()) {
+                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 24.dp)) {
+                                Text("Template: ", style = MaterialTheme.typography.bodyMedium)
+                                Box {
+                                    TextButton(onClick = { showTemplateSelector = true }) {
+                                        Text(templates.find { it.id == selectedTemplateId }?.name ?: "All Master Items")
+                                    }
+                                    DropdownMenu(expanded = showTemplateSelector, onDismissRequest = { showTemplateSelector = false }) {
+                                        DropdownMenuItem(text = { Text("All Master Items") }, onClick = { selectedTemplateId = 0; showTemplateSelector = false })
+                                        templates.forEach { template ->
+                                            DropdownMenuItem(text = { Text(template.name) }, onClick = { selectedTemplateId = template.id; showTemplateSelector = false })
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Checkbox(checked = addMenu, onCheckedChange = { addMenu = it })
                             Text("Menu")
@@ -431,10 +509,10 @@ fun HomeScreen(
             confirmButton = {
                 Button(onClick = {
                     if (newListName.isNotBlank()) {
-                        viewModel.addList(newListName, addInventory, addMenu, addIngredients, addItinerary)
+                        viewModel.addList(newListName, addInventory, addMenu, addIngredients, addItinerary, if (selectedTemplateId > 0) selectedTemplateId else null)
                     }
                     newListName = ""
-                    addInventory = true; addMenu = true; addIngredients = true; addItinerary = true
+                    addInventory = true; addMenu = true; addIngredients = true; addItinerary = true; selectedTemplateId = 0
                     showAddDialog = false
                 }) {
                     Text("Create")
@@ -443,7 +521,7 @@ fun HomeScreen(
             dismissButton = {
                 TextButton(onClick = {
                     newListName = ""
-                    addInventory = true; addMenu = true; addIngredients = true; addItinerary = true
+                    addInventory = true; addMenu = true; addIngredients = true; addItinerary = true; selectedTemplateId = 0
                     showAddDialog = false
                 }) {
                     Text("Cancel")
@@ -505,8 +583,7 @@ fun HomeScreen(
                                         show_menu = editedMenu,
                                         show_ingredients = editedIngredients,
                                         show_itinerary = editedItinerary
-                                    ))
-                                }
+                                    ))                                }
                                 showEditDialog = false
                             }) {
                                 Text("Save")

@@ -34,6 +34,7 @@ fun AppNavGraph(modifier: Modifier = Modifier) {
     val ingredientViewModel: IngredientViewModel = viewModel(factory = IngredientViewModelFactory(repository))
     val masterItemViewModel: MasterItemViewModel = viewModel(factory = MasterItemViewModelFactory(repository))
     val itineraryViewModel: ItineraryViewModel = viewModel(factory = ItineraryViewModelFactory(repository))
+    val templateViewModel: TemplateViewModel = viewModel(factory = TemplateViewModelFactory(repository))
 
     NavHost(
         navController = navController,
@@ -57,12 +58,15 @@ fun AppNavGraph(modifier: Modifier = Modifier) {
                 ingredientGroupViewModel = ingredientGroupViewModel,
                 ingredientViewModel = ingredientViewModel,
                 itineraryViewModel = itineraryViewModel,
+                templateViewModel = templateViewModel,
                 onOpenInventory = { listId -> navController.navigate("entries/$listId") },
                 onOpenMenu = { listId -> navController.navigate("menu/$listId") },
                 onOpenIngredients = { listId -> navController.navigate("ingredient_groups/$listId") },
                 onOpenItinerary = { listId -> navController.navigate("itinerary/$listId") },
                 onOpenMasterInventory = { navController.navigate("master_inventory") },
-                onViewPdf = { path -> navController.navigate("pdf_viewer/${Uri.encode(path)}") }
+                onViewPdf = { path -> navController.navigate("pdf_viewer/${Uri.encode(path)}") },
+                onCreateTemplate = { navController.navigate("create_template") },
+                onEditTemplate = { id -> navController.navigate("edit_template/$id") }
             )
         }
 
@@ -71,6 +75,27 @@ fun AppNavGraph(modifier: Modifier = Modifier) {
                 viewModel = masterItemViewModel,
                 onBack = { navController.popBackStack() },
                 onOpenContainer = { masterItemId -> navController.navigate("master_items/$masterItemId") }
+            )
+        }
+
+        composable("create_template") {
+            CreateTemplateScreen(
+                masterViewModel = masterItemViewModel,
+                templateViewModel = templateViewModel,
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(
+            route = "edit_template/{templateId}",
+            arguments = listOf(navArgument("templateId") { type = NavType.IntType })
+        ) { backStackEntry ->
+            val templateId = backStackEntry.arguments?.getInt("templateId") ?: 0
+            EditTemplateScreen(
+                templateId = templateId,
+                masterViewModel = masterItemViewModel,
+                templateViewModel = templateViewModel,
+                onBack = { navController.popBackStack() }
             )
         }
 

@@ -71,10 +71,10 @@ class MasterItemViewModel(
         }
     }
 
-    fun addMasterItem(name: String, isContainer: Boolean, imagePath: String? = null) {
+    fun addMasterItem(name: String, isContainer: Boolean, imagePath: String? = null, color: String = "#800000") {
         viewModelScope.launch {
             try {
-                repository.addMasterItem(name, isContainer, imagePath)
+                repository.addMasterItem(name, isContainer, imagePath, color)
             } catch (e: Exception) {
                 _error.value = e.message ?: "Unknown error"
             }
@@ -130,7 +130,7 @@ class MasterItemViewModel(
         }
     }
 
-    fun addMasterSubItem(masterItemId: Int, name: String, qty: Int, isContainer: Boolean, imagePath: String? = null) {
+    fun addMasterSubItem(masterItemId: Int, name: String, qty: Int, isContainer: Boolean, imagePath: String? = null, color: String = "#800000") {
         viewModelScope.launch {
             try {
                 repository.insertMasterSubItem(MasterSubItem(
@@ -138,7 +138,8 @@ class MasterItemViewModel(
                     name = name, 
                     default_quantity = qty, 
                     is_container = isContainer,
-                    image_path = imagePath
+                    image_path = imagePath,
+                    color = color
                 ))
             } catch (e: Exception) {
                 _error.value = e.message

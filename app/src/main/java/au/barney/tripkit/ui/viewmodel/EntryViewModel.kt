@@ -6,6 +6,7 @@ import au.barney.tripkit.data.model.Entry
 import au.barney.tripkit.data.model.EntryWithCount
 import au.barney.tripkit.data.model.ListItem
 import au.barney.tripkit.data.repository.TripKitRepository
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
@@ -33,12 +34,18 @@ class EntryViewModel(
     private val _currentList = MutableStateFlow<ListItem?>(null)
     val currentList: StateFlow<ListItem?> = _currentList
 
+    private var loadJob: Job? = null
 
     // ------------------ LOAD ENTRIES ------------------
 
     fun loadEntries(listId: Int) {
-        viewModelScope.launch {
+        // Cancel the previous collection job to prevent flickering and bleeding
+        loadJob?.cancel()
+        
+        loadJob = viewModelScope.launch {
             _loading.value = true
+            _entries.value = emptyList()
+            _entriesWithCount.value = emptyList()
             
             try {
                 _currentList.value = repository.getList(listId)
@@ -88,10 +95,10 @@ class EntryViewModel(
 
     // ------------------ ADD ENTRY ------------------
 
-    fun addEntry(listId: Int, name: String, quantity: Int, notes: String?, entryType: String, imagePath: String? = null, addToMaster: Boolean = false) {
+    fun addEntry(listId: Int, name: String, quantity: Int, notes: String?, entryType: String, imagePath: String? = null, addToMaster: Boolean = false, color: String = "#800000") {
         viewModelScope.launch {
             try {
-                repository.addEntry(name, entryType, quantity, notes, listId, imagePath, addToMaster)
+                repository.addEntry(name, entryType, quantity, notes, listId, imagePath, addToMaster, color)
             } catch (e: Exception) {
                 _error.value = e.message ?: "Unknown error"
             }
@@ -108,11 +115,12 @@ class EntryViewModel(
         notes: String?,
         entryType: String,
         listId: Int,
-        imagePath: String? = null
+        imagePath: String? = null,
+        color: String = "#800000"
     ) {
         viewModelScope.launch {
             try {
-                repository.updateEntry(entryId, name, quantity, notes, entryType, imagePath)
+                repository.updateEntry(entryId, name, quantity, notes, entryType, imagePath, color)
             } catch (e: Exception) {
                 _error.value = e.message ?: "Unknown error"
             }

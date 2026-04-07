@@ -1,11 +1,15 @@
 package au.barney.tripkit.ui.screens
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -16,6 +20,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -44,10 +49,17 @@ fun MasterSubItemsScreen(
     var itemName by remember { mutableStateOf("") }
     var itemQty by remember { mutableStateOf("1") }
     var isContainer by remember { mutableStateOf(false) }
+    var itemColor by remember { mutableStateOf("#800000") }
     var imagePath by remember { mutableStateOf<String?>(null) }
 
     var showEditDialog by remember { mutableStateOf(false) }
     var editItem by remember { mutableStateOf<MasterSubItem?>(null) }
+
+    val presetColors = listOf(
+        "#800000", "#FF0000", "#FF4500", "#FF8C00", "#FFD700",
+        "#008000", "#006400", "#228B22", "#008080", "#000080",
+        "#0000FF", "#4B0082", "#800080", "#FF00FF", "#000000"
+    )
 
     LaunchedEffect(masterItemId) {
         viewModel.loadMasterSubItems(masterItemId)
@@ -57,7 +69,7 @@ fun MasterSubItemsScreen(
         AlertDialog(
             onDismissRequest = { 
                 showAddDialog = false
-                itemName = ""; itemQty = "1"; isContainer = false; imagePath = null
+                itemName = ""; itemQty = "1"; isContainer = false; imagePath = null; itemColor = "#800000"
             },
             title = { Text("Add Item to $containerName") },
             text = {
@@ -74,14 +86,37 @@ fun MasterSubItemsScreen(
                         Text("Is this a sub-category?")
                     }
 
+                    if (isContainer) {
+                        Text("Sub-Category Line Color:", style = MaterialTheme.typography.bodyMedium)
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+                        ) {
+                            items(presetColors) { colorHex ->
+                                Box(
+                                    modifier = Modifier
+                                        .size(32.dp)
+                                        .clip(CircleShape)
+                                        .background(Color(android.graphics.Color.parseColor(colorHex)))
+                                        .border(
+                                            width = if (itemColor == colorHex) 3.dp else 1.dp,
+                                            color = if (itemColor == colorHex) MaterialTheme.colorScheme.primary else Color.LightGray,
+                                            shape = CircleShape
+                                        )
+                                        .clickable { itemColor = colorHex }
+                                )
+                            }
+                        }
+                    }
+
                     ImagePicker(currentImagePath = imagePath, onImageSelected = { imagePath = it })
                 }
             },
             confirmButton = {
                 Button(onClick = {
                     if (itemName.isNotBlank()) {
-                        viewModel.addMasterSubItem(masterItemId, itemName, if (isContainer) 0 else (itemQty.toIntOrNull() ?: 1), isContainer, imagePath)
-                        itemName = ""; itemQty = "1"; isContainer = false; imagePath = null
+                        viewModel.addMasterSubItem(masterItemId, itemName, if (isContainer) 0 else (itemQty.toIntOrNull() ?: 1), isContainer, imagePath, itemColor)
+                        itemName = ""; itemQty = "1"; isContainer = false; imagePath = null; itemColor = "#800000"
                         showAddDialog = false
                     }
                 }) { Text("Add") }
@@ -89,7 +124,7 @@ fun MasterSubItemsScreen(
             dismissButton = {
                 TextButton(onClick = { 
                     showAddDialog = false
-                    itemName = ""; itemQty = "1"; isContainer = false; imagePath = null
+                    itemName = ""; itemQty = "1"; isContainer = false; imagePath = null; itemColor = "#800000"
                 }) { Text("Cancel") }
             }
         )
@@ -100,6 +135,7 @@ fun MasterSubItemsScreen(
         var editQty by remember { mutableStateOf(editItem!!.default_quantity.toString()) }
         var editIsContainer by remember { mutableStateOf(editItem!!.is_container) }
         var editImagePath by remember { mutableStateOf(editItem!!.image_path) }
+        var editColor by remember { mutableStateOf(editItem!!.color) }
 
         AlertDialog(
             onDismissRequest = { showEditDialog = false },
@@ -122,6 +158,29 @@ fun MasterSubItemsScreen(
                         Text("Is this a sub-category?")
                     }
 
+                    if (editIsContainer) {
+                        Text("Sub-Category Line Color:", style = MaterialTheme.typography.bodyMedium)
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+                        ) {
+                            items(presetColors) { colorHex ->
+                                Box(
+                                    modifier = Modifier
+                                        .size(32.dp)
+                                        .clip(CircleShape)
+                                        .background(Color(android.graphics.Color.parseColor(colorHex)))
+                                        .border(
+                                            width = if (editColor == colorHex) 3.dp else 1.dp,
+                                            color = if (editColor == colorHex) MaterialTheme.colorScheme.primary else Color.LightGray,
+                                            shape = CircleShape
+                                        )
+                                        .clickable { editColor = colorHex }
+                                )
+                            }
+                        }
+                    }
+
                     ImagePicker(currentImagePath = editImagePath, onImageSelected = { editImagePath = it })
                 }
             },
@@ -132,7 +191,8 @@ fun MasterSubItemsScreen(
                             name = editName, 
                             default_quantity = if (editIsContainer) 0 else (editQty.toIntOrNull() ?: 1),
                             is_container = editIsContainer,
-                            image_path = editImagePath
+                            image_path = editImagePath,
+                            color = editColor
                         ))
                         showEditDialog = false
                     }
@@ -209,42 +269,64 @@ fun MasterSubItemRow(
     ) {
         Box {
             Row(
-                modifier = Modifier.padding(12.dp),
+                modifier = Modifier.height(IntrinsicSize.Min),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                if (item.image_path != null) {
-                    AsyncImage(
-                        model = item.image_path,
-                        contentDescription = null,
-                        modifier = Modifier
-                            .size(50.dp)
-                            .clip(RoundedCornerShape(4.dp))
-                            .clickable { showFullScreen = true },
-                        contentScale = ContentScale.Crop
-                    )
-                    Spacer(Modifier.width(12.dp))
-                }
-
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(item.name, style = MaterialTheme.typography.titleMedium)
-                    if (!item.is_container) {
-                        Text("Qty: ${item.default_quantity}", style = MaterialTheme.typography.bodySmall)
-                    }
-                }
-
+                // Colored vertical line for sub-containers
                 if (item.is_container) {
-                    Text(
-                        text = "Items: $subSubItemCount",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(end = 8.dp)
+                    val lineColor = try {
+                        Color(android.graphics.Color.parseColor(item.color))
+                    } catch (e: Exception) {
+                        MaterialTheme.colorScheme.primary
+                    }
+                    Box(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .width(6.dp)
+                            .background(lineColor)
                     )
-                    Text(
-                        text = ">",
-                        style = MaterialTheme.typography.titleLarge,
-                        modifier = Modifier.padding(start = 4.dp),
-                        color = MaterialTheme.colorScheme.primary
-                    )
+                }
+
+                Row(
+                    modifier = Modifier.padding(12.dp).weight(1f),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (item.image_path != null) {
+                        AsyncImage(
+                            model = item.image_path,
+                            contentDescription = null,
+                            modifier = Modifier
+                                .size(50.dp)
+                                .clip(RoundedCornerShape(4.dp))
+                                .clickable { showFullScreen = true },
+                            contentScale = ContentScale.Crop
+                        )
+                        Spacer(Modifier.width(12.dp))
+                    }
+
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(item.name, style = MaterialTheme.typography.titleMedium)
+                        if (!item.is_container) {
+                            Text("Qty: ${item.default_quantity}", style = MaterialTheme.typography.bodySmall)
+                        } else {
+                            Text("Sub-Category (Tap to open)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+                        }
+                    }
+
+                    if (item.is_container) {
+                        Text(
+                            text = "Items: $subSubItemCount",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(end = 8.dp)
+                        )
+                        Text(
+                            text = ">",
+                            style = MaterialTheme.typography.titleLarge,
+                            modifier = Modifier.padding(start = 4.dp),
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
                 }
             }
 

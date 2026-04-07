@@ -6,6 +6,7 @@ import au.barney.tripkit.data.model.Item
 import au.barney.tripkit.data.model.ItemWithCount
 import au.barney.tripkit.data.model.SubItem
 import au.barney.tripkit.data.repository.TripKitRepository
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -39,14 +40,21 @@ class ItemViewModel(
     private val _currentItem = MutableStateFlow<Item?>(null)
     val currentItem: StateFlow<Item?> = _currentItem
 
+    private var loadJob: Job? = null
+    private var allItemsJob: Job? = null
+
 
     // ------------------ LOAD ALL ITEMS FOR ENTRY ------------------
 
     fun loadItems(entryId: Int) {
+        if (currentEntryId == entryId) return
         currentEntryId = entryId
 
-        viewModelScope.launch {
+        loadJob?.cancel()
+        loadJob = viewModelScope.launch {
             _loading.value = true
+            _items.value = emptyList()
+            _itemsWithCount.value = emptyList()
             
             // Get simple items
             launch {
@@ -73,32 +81,38 @@ class ItemViewModel(
     // ------------------ LOAD ALL ITEMS FOR PDF ------------------
 
     fun loadAllItemsForList(listId: Int) {
-        viewModelScope.launch {
-            repository.getAllItemsForList(listId)
-                .catch { e -> _error.value = e.message }
-                .collect { all ->
-                    _allItems.value = all
-                }
-        }
-        
-        viewModelScope.launch {
-            repository.getAllSubItemsForList(listId)
-                .catch { e -> _error.value = e.message }
-                .collect { all ->
-                    _allSubItems.value = all
-                }
+        allItemsJob?.cancel()
+        allItemsJob = viewModelScope.launch {
+            _allItems.value = emptyList()
+            _allSubItems.value = emptyList()
+
+            launch {
+                repository.getAllItemsForList(listId)
+                    .catch { e -> _error.value = e.message }
+                    .collect { all ->
+                        _allItems.value = all
+                    }
+            }
+            
+            launch {
+                repository.getAllSubItemsForList(listId)
+                    .catch { e -> _error.value = e.message }
+                    .collect { all ->
+                        _allSubItems.value = all
+                    }
+            }
         }
     }
 
 
     // ------------------ ADD ITEM ------------------
 
-    fun addItem(name: String, quantity: Int, notes: String?, isContainer: Boolean, imagePath: String? = null, addToMaster: Boolean = true) {
+    fun addItem(name: String, quantity: Int, notes: String?, isContainer: Boolean, imagePath: String? = null, addToMaster: Boolean = true, color: String = "#800000") {
         if (currentEntryId == -1) return
 
         viewModelScope.launch {
             try {
-                repository.addItem(currentEntryId, name, quantity, notes, isContainer, imagePath, addToMaster)
+                repository.addItem(currentEntryId, name, quantity, notes, isContainer, imagePath, addToMaster, color)
             } catch (e: Exception) {
                 _error.value = e.message ?: "Unknown error"
             }
@@ -152,10 +166,10 @@ class ItemViewModel(
 
     // ------------------ UPDATE ITEM ------------------
 
-    fun updateItem(itemId: Int, name: String, quantity: Int, notes: String?, isContainer: Boolean, imagePath: String? = null) {
+    fun updateItem(itemId: Int, name: String, quantity: Int, notes: String?, isContainer: Boolean, imagePath: String? = null, color: String = "#800000") {
         viewModelScope.launch {
             try {
-                repository.updateItem(itemId, name, quantity, notes, isContainer, imagePath)
+                repository.updateItem(itemId, name, quantity, notes, isContainer, imagePath, color)
             } catch (e: Exception) {
                 _error.value = e.message ?: "Unknown error"
             }

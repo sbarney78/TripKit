@@ -1,12 +1,19 @@
 package au.barney.tripkit.ui.screens
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import au.barney.tripkit.ui.viewmodel.ItemViewModel
@@ -25,6 +32,7 @@ fun AddItemScreen(
     var quantity by remember { mutableStateOf("1") }
     var notes by remember { mutableStateOf("") }
     var isContainer by remember { mutableStateOf(false) }
+    var colorHex by remember { mutableStateOf("#800000") }
     var imagePath by remember { mutableStateOf<String?>(null) }
 
     val masterItems by masterViewModel.masterItems.collectAsState()
@@ -33,6 +41,12 @@ fun AddItemScreen(
         if (!showDropdown || name.isEmpty()) emptyList()
         else masterItems.filter { it.name.contains(name, ignoreCase = true) }
     }
+
+    val presetColors = listOf(
+        "#800000", "#FF0000", "#FF4500", "#FF8C00", "#FFD700",
+        "#008000", "#006400", "#228B22", "#008080", "#000080",
+        "#0000FF", "#4B0082", "#800080", "#FF00FF", "#000000"
+    )
 
     var showMasterDialog by remember { mutableStateOf(false) }
 
@@ -86,6 +100,7 @@ fun AddItemScreen(
                                             name = item.name
                                             isContainer = item.is_container
                                             imagePath = item.image_path
+                                            colorHex = item.color
                                             showDropdown = false
                                         }
                                     )
@@ -123,6 +138,31 @@ fun AddItemScreen(
                 }
             }
 
+            if (isContainer) {
+                item {
+                    Text("Container Line Color:", style = MaterialTheme.typography.bodyMedium)
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+                    ) {
+                        items(presetColors) { hex ->
+                            Box(
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(android.graphics.Color.parseColor(hex)))
+                                    .border(
+                                        width = if (colorHex == hex) 3.dp else 1.dp,
+                                        color = if (colorHex == hex) MaterialTheme.colorScheme.primary else Color.LightGray,
+                                        shape = CircleShape
+                                    )
+                                    .clickable { colorHex = hex }
+                            )
+                        }
+                    }
+                }
+            }
+
             item {
                 ImagePicker(
                     currentImagePath = imagePath,
@@ -141,7 +181,7 @@ fun AddItemScreen(
                         if (!exactMatch && name.isNotBlank()) {
                             showMasterDialog = true
                         } else {
-                            viewModel.addItem(name, qty, notes, isContainer, imagePath, addToMaster = false)
+                            viewModel.addItem(name, qty, notes, isContainer, imagePath, addToMaster = false, color = colorHex)
                             onDone()
                         }
                     },
@@ -160,14 +200,14 @@ fun AddItemScreen(
             text = { Text("'$name' is not in your Master Inventory. Would you like to add it for future use?") },
             confirmButton = {
                 Button(onClick = {
-                    viewModel.addItem(name, if (isContainer) 0 else (quantity.toIntOrNull() ?: 1), notes, isContainer, imagePath, addToMaster = true)
+                    viewModel.addItem(name, if (isContainer) 0 else (quantity.toIntOrNull() ?: 1), notes, isContainer, imagePath, addToMaster = true, color = colorHex)
                     showMasterDialog = false
                     onDone()
                 }) { Text("Add & Save") }
             },
             dismissButton = {
                 TextButton(onClick = {
-                    viewModel.addItem(name, if (isContainer) 0 else (quantity.toIntOrNull() ?: 1), notes, isContainer, imagePath, addToMaster = false)
+                    viewModel.addItem(name, if (isContainer) 0 else (quantity.toIntOrNull() ?: 1), notes, isContainer, imagePath, addToMaster = false, color = colorHex)
                     showMasterDialog = false
                     onDone()
                 }) { Text("Save Only") }

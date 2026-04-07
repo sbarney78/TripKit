@@ -8,7 +8,7 @@ import kotlinx.coroutines.flow.Flow
 interface TripKitDao {
 
     // ------------------ LISTS ------------------
-    @Query("SELECT * FROM lists ORDER BY created_at DESC")
+    @Query("SELECT * FROM lists ORDER BY name COLLATE NOCASE ASC")
     fun getLists(): Flow<List<ListItem>>
 
     @Query("SELECT * FROM lists WHERE id = :listId")
@@ -53,6 +53,9 @@ interface TripKitDao {
 
     @Update
     suspend fun updateEntry(entry: Entry)
+
+    @Query("UPDATE entries SET color = :color WHERE entry_name = :name COLLATE NOCASE")
+    suspend fun updateEntryColorByName(name: String, color: String)
 
     @Query("DELETE FROM entries WHERE entry_id = :entryId")
     suspend fun deleteEntry(entryId: Int)
@@ -100,6 +103,9 @@ interface TripKitDao {
     @Update
     suspend fun updateItem(item: Item)
 
+    @Query("UPDATE items SET color = :color WHERE item_name = :name COLLATE NOCASE")
+    suspend fun updateItemColorByName(name: String, color: String)
+
     @Query("DELETE FROM items WHERE item_id = :itemId")
     suspend fun deleteItem(itemId: Int)
 
@@ -139,6 +145,9 @@ interface TripKitDao {
 
     @Update
     suspend fun updateSubItem(subItem: SubItem)
+
+    @Query("UPDATE sub_items SET color = :color WHERE name = :name COLLATE NOCASE")
+    suspend fun updateSubItemColorByName(name: String, color: String)
 
     @Query("DELETE FROM sub_items WHERE id = :id")
     suspend fun deleteSubItem(id: Int)
@@ -332,4 +341,104 @@ interface TripKitDao {
 
     @Query("DELETE FROM itinerary_items WHERE id = :itemId")
     suspend fun deleteItineraryItem(itemId: Int)
+
+    // ------------------ TEMPLATES ------------------
+    @Query("SELECT * FROM templates ORDER BY name COLLATE NOCASE ASC")
+    fun getTemplates(): Flow<List<Template>>
+
+    @Query("SELECT * FROM templates WHERE id = :templateId")
+    suspend fun getTemplate(templateId: Int): Template?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertTemplate(template: Template): Long
+
+    @Update
+    suspend fun updateTemplate(template: Template)
+
+    @Query("DELETE FROM templates WHERE id = :templateId")
+    suspend fun deleteTemplate(templateId: Int)
+
+    @Query("SELECT * FROM template_entries WHERE template_id = :templateId ORDER BY name COLLATE NOCASE ASC")
+    fun getTemplateEntries(templateId: Int): Flow<List<TemplateEntry>>
+
+    @Query("SELECT * FROM template_entries WHERE template_id = :templateId ORDER BY name COLLATE NOCASE ASC")
+    suspend fun getTemplateEntriesSync(templateId: Int): List<TemplateEntry>
+
+    @Query("SELECT * FROM template_entries WHERE id = :id")
+    suspend fun getTemplateEntrySync(id: Int): TemplateEntry?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertTemplateEntry(entry: TemplateEntry): Long
+
+    @Update
+    suspend fun updateTemplateEntry(entry: TemplateEntry)
+
+    @Query("UPDATE template_entries SET color = :color WHERE name = :name COLLATE NOCASE")
+    suspend fun updateTemplateEntryColorByName(name: String, color: String)
+
+    @Query("UPDATE template_entries SET is_checked = :checked WHERE id = :id")
+    suspend fun updateTemplateEntryChecked(id: Int, checked: Int)
+
+    @Query("DELETE FROM template_entries WHERE id = :id")
+    suspend fun deleteTemplateEntry(id: Int)
+
+    @Query("DELETE FROM template_entries WHERE template_id = :templateId")
+    suspend fun deleteTemplateEntries(templateId: Int)
+
+    @Query("SELECT * FROM template_items WHERE template_entry_id = :entryId ORDER BY name COLLATE NOCASE ASC")
+    fun getTemplateItems(entryId: Int): Flow<List<TemplateItem>>
+
+    @Query("SELECT * FROM template_items WHERE template_entry_id = :entryId ORDER BY name COLLATE NOCASE ASC")
+    suspend fun getTemplateItemsSync(entryId: Int): List<TemplateItem>
+
+    @Query("SELECT * FROM template_items WHERE id = :id")
+    suspend fun getTemplateItemSync(id: Int): TemplateItem?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertTemplateItem(item: TemplateItem): Long
+
+    @Update
+    suspend fun updateTemplateItem(item: TemplateItem)
+
+    @Query("UPDATE template_items SET color = :color WHERE name = :name COLLATE NOCASE")
+    suspend fun updateTemplateItemColorByName(name: String, color: String)
+
+    @Query("UPDATE template_items SET is_checked = :checked WHERE id = :id")
+    suspend fun updateTemplateItemChecked(id: Int, checked: Int)
+
+    @Query("UPDATE template_items SET is_checked = :checked WHERE template_entry_id = :entryId")
+    suspend fun updateAllItemsInEntryChecked(entryId: Int, checked: Int)
+
+    @Query("DELETE FROM template_items WHERE id = :id")
+    suspend fun deleteTemplateItem(id: Int)
+
+    @Query("SELECT * FROM template_sub_items WHERE template_item_id = :itemId ORDER BY name COLLATE NOCASE ASC")
+    fun getTemplateSubItems(itemId: Int): Flow<List<TemplateSubItem>>
+
+    @Query("SELECT * FROM template_sub_items WHERE template_item_id = :itemId ORDER BY name COLLATE NOCASE ASC")
+    suspend fun getTemplateSubItemsSync(itemId: Int): List<TemplateSubItem>
+
+    @Query("SELECT * FROM template_sub_items WHERE id = :id")
+    suspend fun getTemplateSubItemSync(id: Int): TemplateSubItem?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertTemplateSubItem(subItem: TemplateSubItem): Long
+
+    @Update
+    suspend fun updateTemplateSubItem(subItem: TemplateSubItem)
+
+    @Query("UPDATE template_sub_items SET color = :color WHERE name = :name COLLATE NOCASE")
+    suspend fun updateTemplateSubItemColorByName(name: String, color: String)
+
+    @Query("UPDATE template_sub_items SET is_checked = :checked WHERE id = :id")
+    suspend fun updateTemplateSubItemChecked(id: Int, checked: Int)
+
+    @Query("UPDATE template_sub_items SET is_checked = :checked WHERE template_item_id = :itemId")
+    suspend fun updateAllSubItemsInItemChecked(itemId: Int, checked: Int)
+
+    @Query("UPDATE template_sub_items SET is_checked = :checked WHERE template_item_id IN (SELECT id FROM template_items WHERE template_entry_id = :entryId)")
+    suspend fun updateAllSubItemsInEntryChecked(entryId: Int, checked: Int)
+
+    @Query("DELETE FROM template_sub_items WHERE id = :id")
+    suspend fun deleteTemplateSubItem(id: Int)
 }

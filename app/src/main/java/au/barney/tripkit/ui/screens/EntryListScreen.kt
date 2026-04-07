@@ -1,17 +1,21 @@
 package au.barney.tripkit.ui.screens
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -179,69 +183,89 @@ fun EntryRow(
     ) {
         Box {
             Row(
-                modifier = Modifier
-                    .padding(12.dp)
-                    .fillMaxWidth(),
+                modifier = Modifier.height(IntrinsicSize.Min),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-
-                Checkbox(
-                    checked = entry.is_checked == 1,
-                    onCheckedChange = { onToggle(it) }
-                )
-                
-                if (entry.image_path != null) {
-                    AsyncImage(
-                        model = entry.image_path,
-                        contentDescription = null,
-                        modifier = Modifier
-                            .size(50.dp)
-                            .clip(RoundedCornerShape(4.dp))
-                            .clickable { showFullScreen = true },
-                        contentScale = ContentScale.Crop
-                    )
-                    Spacer(Modifier.width(12.dp))
-                }
-
-                Column(
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text(
-                        text = entry.entry_name,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = if (entry.is_checked == 1) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.onSurface
-                    )
-
-                    if (!isContainer) {
-                        Text(
-                            text = "Qty: ${entry.quantity}",
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                    }
-
-                    if (!entry.notes.isNullOrEmpty()) {
-                        Text(
-                            text = entry.notes ?: "",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-
+                // Colored vertical line for containers
                 if (isContainer) {
-                    Text(
-                        text = "Items: $subItemCount",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(end = 8.dp)
+                    val lineColor = try {
+                        Color(android.graphics.Color.parseColor(entry.color))
+                    } catch (e: Exception) {
+                        MaterialTheme.colorScheme.primary
+                    }
+                    Box(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .width(6.dp)
+                            .background(lineColor)
                     )
-                    Text(
-                        text = ">",
-                        style = MaterialTheme.typography.titleLarge,
-                        modifier = Modifier.padding(start = 4.dp),
-                        color = MaterialTheme.colorScheme.primary
+                }
+
+                Row(
+                    modifier = Modifier
+                        .padding(12.dp)
+                        .fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+
+                    Checkbox(
+                        checked = entry.is_checked == 1,
+                        onCheckedChange = { onToggle(it) }
                     )
+                    
+                    if (entry.image_path != null) {
+                        AsyncImage(
+                            model = entry.image_path,
+                            contentDescription = null,
+                            modifier = Modifier
+                                .size(50.dp)
+                                .clip(RoundedCornerShape(4.dp))
+                                .clickable { showFullScreen = true },
+                            contentScale = ContentScale.Crop
+                        )
+                        Spacer(Modifier.width(12.dp))
+                    }
+
+                    Column(
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(
+                            text = entry.entry_name,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = if (entry.is_checked == 1) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.onSurface
+                        )
+
+                        if (!isContainer) {
+                            Text(
+                                text = "Qty: ${entry.quantity}",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
+
+                        if (!entry.notes.isNullOrEmpty()) {
+                            Text(
+                                text = entry.notes ?: "",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+
+                    if (isContainer) {
+                        Text(
+                            text = "Items: $subItemCount",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(end = 8.dp)
+                        )
+                        Text(
+                            text = ">",
+                            style = MaterialTheme.typography.titleLarge,
+                            modifier = Modifier.padding(start = 4.dp),
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
                 }
             }
 

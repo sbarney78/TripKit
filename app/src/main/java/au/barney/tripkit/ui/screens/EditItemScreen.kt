@@ -1,11 +1,19 @@
 package au.barney.tripkit.ui.screens
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import au.barney.tripkit.ui.viewmodel.ItemViewModel
 
@@ -74,14 +82,16 @@ fun EditItemScreen(
                         notesInitial = currentItem.notes ?: "",
                         isContainerInitial = currentItem.is_container,
                         imagePathInitial = currentItem.image_path,
-                        onSave = { name, quantity, notes, isContainer, imagePath ->
+                        colorInitial = currentItem.color,
+                        onSave = { name, quantity, notes, isContainer, imagePath, color ->
                             viewModel.updateItem(
                                 itemId = itemId,
                                 name = name,
                                 quantity = quantity,
                                 notes = notes,
                                 isContainer = isContainer,
-                                imagePath = imagePath
+                                imagePath = imagePath,
+                                color = color
                             )
                             onBack()
                         }
@@ -100,13 +110,21 @@ private fun EditItemForm(
     notesInitial: String,
     isContainerInitial: Boolean,
     imagePathInitial: String?,
-    onSave: (String, Int, String?, Boolean, String?) -> Unit
+    colorInitial: String,
+    onSave: (String, Int, String?, Boolean, String?, String) -> Unit
 ) {
     var name by remember(itemId) { mutableStateOf(nameInitial) }
     var quantity by remember(itemId) { mutableStateOf(quantityInitial.toString()) }
     var notes by remember(itemId) { mutableStateOf(notesInitial) }
     var isContainer by remember(itemId) { mutableStateOf(isContainerInitial) }
     var imagePath by remember(itemId) { mutableStateOf(imagePathInitial) }
+    var colorHex by remember(itemId) { mutableStateOf(colorInitial) }
+
+    val presetColors = listOf(
+        "#800000", "#FF0000", "#FF4500", "#FF8C00", "#FFD700",
+        "#008000", "#006400", "#228B22", "#008080", "#000080",
+        "#0000FF", "#4B0082", "#800080", "#FF00FF", "#000000"
+    )
 
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(16.dp),
@@ -152,6 +170,31 @@ private fun EditItemForm(
             }
         }
 
+        if (isContainer) {
+            item {
+                Text("Container Line Color:", style = MaterialTheme.typography.bodyMedium)
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+                ) {
+                    items(presetColors) { hex ->
+                        Box(
+                            modifier = Modifier
+                                .size(32.dp)
+                                .clip(CircleShape)
+                                .background(Color(android.graphics.Color.parseColor(hex)))
+                                .border(
+                                    width = if (colorHex == hex) 3.dp else 1.dp,
+                                    color = if (colorHex == hex) MaterialTheme.colorScheme.primary else Color.LightGray,
+                                    shape = CircleShape
+                                )
+                                .clickable { colorHex = hex }
+                        )
+                    }
+                }
+            }
+        }
+
         item {
             ImagePicker(
                 currentImagePath = imagePath,
@@ -163,7 +206,7 @@ private fun EditItemForm(
             Button(
                 onClick = {
                     val qty = if (isContainer) 0 else (quantity.toIntOrNull() ?: 1)
-                    onSave(name, qty, notes, isContainer, imagePath)
+                    onSave(name, qty, notes, isContainer, imagePath, colorHex)
                 },
                 modifier = Modifier.fillMaxWidth()
             ) {

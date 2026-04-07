@@ -33,7 +33,9 @@ data class Entry(
     val sync_id: String = UUID.randomUUID().toString(),
     @ColumnInfo(defaultValue = "0")
     val last_updated: Long = System.currentTimeMillis(),
-    val image_path: String? = null
+    val image_path: String? = null,
+    @ColumnInfo(defaultValue = "#800000") // Default Maroon
+    val color: String = "#800000"
 )
 
 data class EntryWithCount(
