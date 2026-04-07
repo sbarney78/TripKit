@@ -723,7 +723,12 @@ class TripKitRepository(private val dao: TripKitDao) {
             val newEntryId = dao.insertEntry(entry.copy(entry_id = 0, list_id = newListId)).toInt()
             
             data.allItems.filter { it.entry_id == oldEntryId }.forEach { item ->
-                dao.insertItem(item.copy(item_id = 0, entry_id = newEntryId))
+                val oldItemId = item.item_id
+                val newItemId = dao.insertItem(item.copy(item_id = 0, entry_id = newEntryId)).toInt()
+                
+                data.allSubItems.filter { it.item_id == oldItemId }.forEach { subItem ->
+                    dao.insertSubItem(subItem.copy(id = 0, item_id = newItemId))
+                }
             }
         }
 
@@ -773,10 +778,24 @@ class TripKitRepository(private val dao: TripKitDao) {
 
             importedData.allItems.filter { it.entry_id == impEntry.entry_id }.forEach { impItem ->
                 val localItem = dao.getItemBySyncId(impItem.sync_id, entryIdToUse)
+                val itemIdToUse: Int
+                
                 if (localItem == null) {
-                    dao.insertItem(impItem.copy(item_id = 0, entry_id = entryIdToUse))
-                } else if (impItem.last_updated > localItem.last_updated) {
-                    dao.updateItem(impItem.copy(item_id = localItem.item_id, entry_id = entryIdToUse, is_checked = localItem.is_checked))
+                    itemIdToUse = dao.insertItem(impItem.copy(item_id = 0, entry_id = entryIdToUse)).toInt()
+                } else {
+                    itemIdToUse = localItem.item_id
+                    if (impItem.last_updated > localItem.last_updated) {
+                        dao.updateItem(impItem.copy(item_id = itemIdToUse, entry_id = entryIdToUse, is_checked = localItem.is_checked))
+                    }
+                }
+                
+                importedData.allSubItems.filter { it.item_id == impItem.item_id }.forEach { impSub ->
+                    val localSub = dao.getSubItemBySyncId(impSub.sync_id, itemIdToUse)
+                    if (localSub == null) {
+                        dao.insertSubItem(impSub.copy(id = 0, item_id = itemIdToUse))
+                    } else if (impSub.last_updated > localSub.last_updated) {
+                        dao.updateSubItem(impSub.copy(id = localSub.id, item_id = itemIdToUse, is_checked = localSub.is_checked))
+                    }
                 }
             }
         }

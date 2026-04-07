@@ -131,6 +131,9 @@ interface TripKitDao {
     @Query("SELECT * FROM sub_items WHERE id = :id")
     suspend fun getSubItem(id: Int): SubItem?
 
+    @Query("SELECT * FROM sub_items WHERE sync_id = :syncId AND item_id = :itemId")
+    suspend fun getSubItemBySyncId(syncId: String, itemId: Int): SubItem?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSubItem(subItem: SubItem): Long
 
