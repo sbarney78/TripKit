@@ -61,4 +61,4 @@ View and print documents directly inside the app.
 • 	[x] Alphabetical ingredient sorting
 • 	[x] PDF menu exporting
 • 	[ ] Cloud sync support
-• 	[ ] Photo attachments for inventory items
+• 	[x] Photo attachments for inventory items

@@ -18,5 +18,7 @@ data class ListItem(
     @ColumnInfo(defaultValue = "")
     val sync_id: String = UUID.randomUUID().toString(),
     @ColumnInfo(defaultValue = "0")
-    val last_updated: Long = System.currentTimeMillis()
+    val last_updated: Long = System.currentTimeMillis(),
+    @ColumnInfo(defaultValue = "0")
+    val template_id: Int = 0
 )

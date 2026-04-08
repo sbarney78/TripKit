@@ -39,7 +39,8 @@ class TripKitRepository(private val dao: TripKitDao) {
                 show_inventory = showInventory,
                 show_menu = showMenu,
                 show_ingredients = showIngredients,
-                show_itinerary = showItinerary
+                show_itinerary = showItinerary,
+                template_id = templateId ?: 0
             )
         )
         if (showInventory) {
@@ -731,8 +732,33 @@ class TripKitRepository(private val dao: TripKitDao) {
 
     fun getTemplateEntries(templateId: Int) = dao.getTemplateEntries(templateId)
     suspend fun getTemplateEntriesSyncList(templateId: Int): List<TemplateEntry> = dao.getTemplateEntriesSyncList(templateId)
-    suspend fun addTemplateEntry(templateId: Int, name: String, isContainer: Boolean, weightGrams: Int = 0, color: String = "#800000") {
-        dao.insertTemplateEntry(TemplateEntry(template_id = templateId, name = name, is_container = isContainer, weightGrams = weightGrams, color = color))
+    suspend fun addTemplateEntry(templateId: Int, name: String, isContainer: Boolean, weightGrams: Int = 0, color: String = "#800000", imagePath: String? = null) {
+        val entryId = dao.insertTemplateEntry(TemplateEntry(template_id = templateId, name = name, is_container = isContainer, weightGrams = weightGrams, color = color, image_path = imagePath)).toInt()
+        
+        // Sync to existing lists using this template
+        val affectedLists = dao.getListsByTemplate(templateId)
+        affectedLists.forEach { list ->
+            dao.insertEntry(
+                Entry(
+                    entry_name = name,
+                    entry_type = if (isContainer) "container" else "single",
+                    quantity = 1,
+                    notes = null,
+                    list_id = list.id,
+                    is_checked = 0,
+                    image_path = imagePath,
+                    color = color,
+                    weightGrams = weightGrams
+                )
+            )
+        }
+    }
+
+    suspend fun createTemplateFromSelection(name: String, masterItemIds: List<Int>) {
+        val templateId = dao.insertTemplate(Template(name = name)).toInt()
+        masterItemIds.forEach { masterId ->
+            addTemplateEntry(templateId, masterId)
+        }
     }
     
     suspend fun addTemplateEntry(templateId: Int, masterItemId: Int) {
@@ -778,6 +804,61 @@ class TripKitRepository(private val dao: TripKitDao) {
                 }
             }
         }
+
+        // Sync to existing lists using this template
+        val affectedLists = dao.getListsByTemplate(templateId)
+        affectedLists.forEach { list ->
+            val listEntryId = dao.insertEntry(
+                Entry(
+                    entry_name = masterItem.name,
+                    entry_type = if (masterItem.is_container) "container" else "single",
+                    quantity = masterItem.default_quantity,
+                    notes = null,
+                    list_id = list.id,
+                    is_checked = 0,
+                    image_path = masterItem.image_path,
+                    color = masterItem.color,
+                    weightGrams = masterItem.weightGrams
+                )
+            ).toInt()
+
+            if (masterItem.is_container) {
+                val subItems = dao.getMasterSubItemsSync(masterItemId)
+                subItems.forEach { masterSub ->
+                    val itemId = dao.insertItem(
+                        Item(
+                            entry_id = listEntryId,
+                            item_name = masterSub.name,
+                            quantity = masterSub.default_quantity,
+                            notes = null,
+                            is_checked = 0,
+                            is_container = masterSub.is_container,
+                            image_path = masterSub.image_path,
+                            color = masterSub.color,
+                            weightGrams = masterSub.weightGrams
+                        )
+                    ).toInt()
+
+                    if (masterSub.is_container) {
+                        val subSubs = dao.getMasterSubSubItemsSync(masterSub.id)
+                        subSubs.forEach { masterSubSub ->
+                            dao.insertSubItem(
+                                SubItem(
+                                    item_id = itemId,
+                                    name = masterSubSub.name,
+                                    quantity = masterSubSub.default_quantity,
+                                    notes = null,
+                                    is_checked = 0,
+                                    image_path = masterSubSub.image_path,
+                                    color = masterSubSub.color,
+                                    weightGrams = masterSubSub.weightGrams
+                                )
+                            )
+                        }
+                    }
+                }
+            }
+        }
     }
 
     suspend fun updateTemplateEntry(entry: TemplateEntry) = dao.updateTemplateEntry(entry)
@@ -794,8 +875,33 @@ class TripKitRepository(private val dao: TripKitDao) {
 
     fun getTemplateItems(entryId: Int) = dao.getTemplateItems(entryId)
     suspend fun getTemplateItemsSync(entryId: Int): List<TemplateItem> = dao.getTemplateItemsSync(entryId)
-    suspend fun addTemplateItem(entryId: Int, name: String, isContainer: Boolean, weightGrams: Int = 0, color: String = "#800000") {
-        dao.insertTemplateItem(TemplateItem(template_entry_id = entryId, name = name, is_container = isContainer, weightGrams = weightGrams, color = color))
+    suspend fun addTemplateItem(entryId: Int, name: String, isContainer: Boolean, weightGrams: Int = 0, color: String = "#800000", imagePath: String? = null) {
+        val itemId = dao.insertTemplateItem(TemplateItem(template_entry_id = entryId, name = name, is_container = isContainer, weightGrams = weightGrams, color = color, image_path = imagePath)).toInt()
+
+        // Sync to existing lists
+        val templateEntry = dao.getTemplateEntrySync(entryId)
+        if (templateEntry != null) {
+            val affectedLists = dao.getListsByTemplate(templateEntry.template_id)
+            affectedLists.forEach { list ->
+                val entries = dao.getEntriesSync(list.id)
+                val matchingEntry = entries.find { it.entry_name.equals(templateEntry.name, ignoreCase = true) }
+                if (matchingEntry != null) {
+                    dao.insertItem(
+                        Item(
+                            entry_id = matchingEntry.entry_id,
+                            item_name = name,
+                            quantity = 1,
+                            notes = null,
+                            is_checked = 0,
+                            is_container = isContainer,
+                            image_path = imagePath,
+                            color = color,
+                            weightGrams = weightGrams
+                        )
+                    )
+                }
+            }
+        }
     }
     suspend fun updateTemplateItem(item: TemplateItem) = dao.updateTemplateItem(item)
     suspend fun updateTemplateItemColorByName(name: String, color: String) = dao.updateTemplateItemColorByName(name, color)
@@ -818,8 +924,39 @@ class TripKitRepository(private val dao: TripKitDao) {
 
     fun getTemplateSubItems(itemId: Int) = dao.getTemplateSubItems(itemId)
     suspend fun getTemplateSubItemsSync(itemId: Int): List<TemplateSubItem> = dao.getTemplateSubItemsSync(itemId)
-    suspend fun addTemplateSubItem(itemId: Int, name: String, weightGrams: Int = 0, color: String = "#800000") {
-        dao.insertTemplateSubItem(TemplateSubItem(template_item_id = itemId, name = name, weightGrams = weightGrams, color = color))
+    suspend fun addTemplateSubItem(itemId: Int, name: String, weightGrams: Int = 0, color: String = "#800000", imagePath: String? = null) {
+        dao.insertTemplateSubItem(TemplateSubItem(template_item_id = itemId, name = name, weightGrams = weightGrams, color = color, image_path = imagePath))
+
+        // Sync to existing lists
+        val templateItem = dao.getTemplateItemSync(itemId)
+        if (templateItem != null) {
+            val templateEntry = dao.getTemplateEntrySync(templateItem.template_entry_id)
+            if (templateEntry != null) {
+                val affectedLists = dao.getListsByTemplate(templateEntry.template_id)
+                affectedLists.forEach { list ->
+                    val entries = dao.getEntriesSync(list.id)
+                    val matchingEntry = entries.find { it.entry_name.equals(templateEntry.name, ignoreCase = true) }
+                    if (matchingEntry != null) {
+                        val items = dao.getItemsSync(matchingEntry.entry_id)
+                        val matchingItem = items.find { it.item_name.equals(templateItem.name, ignoreCase = true) }
+                        if (matchingItem != null) {
+                            dao.insertSubItem(
+                                SubItem(
+                                    item_id = matchingItem.item_id,
+                                    name = name,
+                                    quantity = 1,
+                                    notes = null,
+                                    is_checked = 0,
+                                    image_path = imagePath,
+                                    color = color,
+                                    weightGrams = weightGrams
+                                )
+                            )
+                        }
+                    }
+                }
+            }
+        }
     }
     suspend fun updateTemplateSubItem(subItem: TemplateSubItem) = dao.updateTemplateSubItem(subItem)
     suspend fun updateTemplateSubItemColorByName(name: String, color: String) = dao.updateTemplateSubItemColorByName(name, color)
@@ -844,53 +981,6 @@ class TripKitRepository(private val dao: TripKitDao) {
         }
     }
 
-    suspend fun createTemplateFromSelection(name: String, masterItemIds: List<Int>) {
-        val templateId = dao.insertTemplate(Template(name = name)).toInt()
-        masterItemIds.forEach { masterId ->
-            val masterItem = dao.getMasterItem(masterId) ?: return@forEach
-            val entryId = dao.insertTemplateEntry(
-                TemplateEntry(
-                    template_id = templateId,
-                    name = masterItem.name,
-                    is_container = masterItem.is_container,
-                    weightGrams = masterItem.weightGrams,
-                    color = masterItem.color,
-                    image_path = masterItem.image_path
-                )
-            ).toInt()
-
-            if (masterItem.is_container) {
-                val subItems = dao.getMasterSubItemsSync(masterId)
-                subItems.forEach { sub ->
-                    val itemId = dao.insertTemplateItem(
-                        TemplateItem(
-                            template_entry_id = entryId,
-                            name = sub.name,
-                            is_container = sub.is_container,
-                            weightGrams = sub.weightGrams,
-                            color = sub.color,
-                            image_path = sub.image_path
-                        )
-                    ).toInt()
-
-                    if (sub.is_container) {
-                        val subSubs = dao.getMasterSubSubItemsSync(sub.id)
-                        subSubs.forEach { ss ->
-                            dao.insertTemplateSubItem(
-                                TemplateSubItem(
-                                    template_item_id = itemId,
-                                    name = ss.name,
-                                    weightGrams = ss.weightGrams,
-                                    color = ss.color,
-                                    image_path = ss.image_path
-                                )
-                            )
-                        }
-                    }
-                }
-            }
-        }
-    }
 
     suspend fun importFullTripData(data: FullTripData) {
         val newListId = dao.insertList(

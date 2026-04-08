@@ -14,6 +14,9 @@ interface TripKitDao {
     @Query("SELECT * FROM lists WHERE id = :listId")
     suspend fun getList(listId: Int): ListItem?
 
+    @Query("SELECT * FROM lists WHERE template_id = :templateId")
+    suspend fun getListsByTemplate(templateId: Int): List<ListItem>
+
     @Query("SELECT * FROM lists WHERE sync_id = :syncId")
     suspend fun getListBySyncId(syncId: String): ListItem?
 
