@@ -165,9 +165,17 @@ class TripKitRepository(private val dao: TripKitDao) {
         }
     }
 
-    suspend fun updateList(list: ListItem) {
+    suspend fun updateList(list: ListItem, clearAndRepopulate: Boolean = false) {
         dao.updateList(list.copy(last_updated = System.currentTimeMillis()))
+        if (clearAndRepopulate && list.template_id > 0) {
+            // Delete existing inventory entries for this list
+            val currentEntries = dao.getEntriesSync(list.id)
+            currentEntries.forEach { dao.deleteEntry(it.entry_id) }
+            // Populate from the new template
+            populateFromTemplate(list.id, list.template_id)
+        }
     }
+
 
     suspend fun deleteList(listId: Int) = dao.deleteList(listId)
 
@@ -1169,12 +1177,14 @@ class TripKitRepository(private val dao: TripKitDao) {
             val activeExtraPayloads = extraPayloadProfiles.filter { it.id in selectedProfileIds }
             val extraPayloadWeight = activeExtraPayloads.sumOf { it.weightGrams }
             
-            val payloadDetails = payloadLocations.map { loc ->
+            val payloadDetails = payloadLocations.mapNotNull { loc ->
                 val currentWeight = payloadWeights[loc.id] ?: 0
-                PayloadAnalysis(
-                    location = loc,
-                    currentWeightGrams = currentWeight
-                )
+                if (currentWeight > 0) {
+                    PayloadAnalysis(
+                        location = loc,
+                        currentWeightGrams = currentWeight
+                    )
+                } else null
             }
 
             WeightDetails(

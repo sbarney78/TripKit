@@ -29,7 +29,7 @@ import au.barney.tripkit.data.model.*
         ExtraPayloadProfile::class,
         ListExtraPayload::class
     ],
-    version = 21,
+    version = 22,
     autoMigrations = [
         AutoMigration(from = 5, to = 6),
         AutoMigration(from = 6, to = 7),
@@ -45,7 +45,8 @@ import au.barney.tripkit.data.model.*
         AutoMigration(from = 16, to = 18),
         AutoMigration(from = 18, to = 19),
         AutoMigration(from = 19, to = 20),
-        AutoMigration(from = 20, to = 21)
+        AutoMigration(from = 20, to = 21),
+        AutoMigration(from = 21, to = 22)
     ],
     exportSchema = true
 )

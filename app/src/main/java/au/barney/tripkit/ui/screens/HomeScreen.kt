@@ -42,7 +42,11 @@ fun HomeIconButton(icon: androidx.compose.ui.graphics.vector.ImageVector, descri
         state = rememberTooltipState()
     ) {
         IconButton(onClick = onClick) {
-            Icon(icon, contentDescription = description)
+            Icon(
+                icon, 
+                contentDescription = description,
+                tint = MaterialTheme.colorScheme.onPrimaryContainer
+            )
         }
     }
 }
@@ -161,81 +165,91 @@ fun HomeScreen(
 
     Scaffold(
         topBar = {
-            Column {
-                TopAppBar(
-                    title = { 
-                        Text(
-                            "TripKit", 
-                            fontWeight = FontWeight.Bold, 
-                            modifier = Modifier.fillMaxWidth(),
-                            textAlign = TextAlign.Center
-                        ) 
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer,
-                        titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
-                )
-                
-                // Icon row below the title
-                Surface(
-                    color = MaterialTheme.colorScheme.primaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 8.dp),
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        HomeIconButton(Icons.Default.Inventory, "Master Inventory", onOpenMasterInventory)
-                        
-                        Box {
-                            HomeIconButton(Icons.Default.DashboardCustomize, "Master Templates") {
-                                templateMenuExpanded = true
-                            }
-                            DropdownMenu(
-                                expanded = templateMenuExpanded,
-                                onDismissRequest = { templateMenuExpanded = false }
-                            ) {
-                                DropdownMenuItem(
-                                    text = { Text("Create Template", fontWeight = FontWeight.Bold) },
-                                    leadingIcon = { Icon(Icons.Default.Add, contentDescription = null) },
-                                    onClick = {
-                                        templateMenuExpanded = false
-                                        onCreateTemplate()
-                                    }
-                                )
-                                if (templates.isNotEmpty()) {
-                                    HorizontalDivider()
-                                    templates.forEach { template ->
-                                        DropdownMenuItem(
-                                            text = { Text(template.name) },
-                                            onClick = {
-                                                templateMenuExpanded = false
-                                                onEditTemplate(template.id)
-                                            }
-                                        )
-                                    }
+            TopAppBar(
+                title = { 
+                    Text(
+                        "TripKit", 
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    ) 
+                },
+                actions = {
+                    HomeIconButton(Icons.Default.Inventory, "Master Inventory", onOpenMasterInventory)
+                    
+                    Box {
+                        HomeIconButton(Icons.Default.DashboardCustomize, "Master Templates") {
+                            templateMenuExpanded = true
+                        }
+                        DropdownMenu(
+                            expanded = templateMenuExpanded,
+                            onDismissRequest = { templateMenuExpanded = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Create Template", fontWeight = FontWeight.Bold) },
+                                leadingIcon = { Icon(Icons.Default.Add, contentDescription = null) },
+                                onClick = {
+                                    templateMenuExpanded = false
+                                    onCreateTemplate()
+                                }
+                            )
+                            if (templates.isNotEmpty()) {
+                                HorizontalDivider()
+                                templates.forEach { template ->
+                                    DropdownMenuItem(
+                                        text = { Text(template.name) },
+                                        onClick = {
+                                            templateMenuExpanded = false
+                                            onEditTemplate(template.id)
+                                        }
+                                    )
                                 }
                             }
                         }
+                    }
 
-                        HomeIconButton(Icons.Default.Scale, "Manage Payloads", onManagePayloads)
+                    HomeIconButton(Icons.Default.Scale, "Manage Payloads", onManagePayloads)
 
-                        HomeIconButton(Icons.Default.Input, "Import Trip") {
-                            importLauncher.launch(arrayOf("application/json"))
+                    var backupMenuExpanded by remember { mutableStateOf(false) }
+                    Box {
+                        HomeIconButton(Icons.Default.Settings, "Backups/Restore") {
+                            backupMenuExpanded = true
                         }
-                        HomeIconButton(Icons.Default.Backup, "Full Backup") {
-                            BackupManager.backupDatabase(context)
-                        }
-                        HomeIconButton(Icons.Default.SettingsBackupRestore, "Full Restore") {
-                            restoreLauncher.launch(arrayOf("application/octet-stream", "application/x-sqlite3"))
+                        DropdownMenu(
+                            expanded = backupMenuExpanded,
+                            onDismissRequest = { backupMenuExpanded = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Import Trip") },
+                                leadingIcon = { Icon(Icons.Default.Input, contentDescription = null) },
+                                onClick = {
+                                    backupMenuExpanded = false
+                                    importLauncher.launch(arrayOf("application/json"))
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Full Backup") },
+                                leadingIcon = { Icon(Icons.Default.Backup, contentDescription = null) },
+                                onClick = {
+                                    backupMenuExpanded = false
+                                    BackupManager.backupDatabase(context)
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Full Restore") },
+                                leadingIcon = { Icon(Icons.Default.SettingsBackupRestore, contentDescription = null) },
+                                onClick = {
+                                    backupMenuExpanded = false
+                                    restoreLauncher.launch(arrayOf("application/octet-stream", "application/x-sqlite3"))
+                                }
+                            )
                         }
                     }
-                }
-            }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+            )
         },
         floatingActionButton = {
             DraggableFAB(onClick = { showAddDialog = true }) {
@@ -544,6 +558,8 @@ fun HomeScreen(
                     var editedMenu by remember { mutableStateOf(currentEditList.show_menu) }
                     var editedIngredients by remember { mutableStateOf(currentEditList.show_ingredients) }
                     var editedItinerary by remember { mutableStateOf(currentEditList.show_itinerary) }
+                    var editedTemplateId by remember { mutableIntStateOf(currentEditList.template_id) }
+                    var showTemplateSelector by remember { mutableStateOf(false) }
 
                     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         OutlinedTextField(
@@ -559,6 +575,24 @@ fun HomeScreen(
                                 Checkbox(checked = editedInventory, onCheckedChange = { editedInventory = it })
                                 Text("Inventory")
                             }
+
+                            if (editedInventory && templates.isNotEmpty()) {
+                                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 24.dp)) {
+                                    Text("Template: ", style = MaterialTheme.typography.bodyMedium)
+                                    Box {
+                                        TextButton(onClick = { showTemplateSelector = true }) {
+                                            Text(templates.find { it.id == editedTemplateId }?.name ?: "None")
+                                        }
+                                        DropdownMenu(expanded = showTemplateSelector, onDismissRequest = { showTemplateSelector = false }) {
+                                            DropdownMenuItem(text = { Text("None") }, onClick = { editedTemplateId = 0; showTemplateSelector = false })
+                                            templates.forEach { template ->
+                                                DropdownMenuItem(text = { Text(template.name) }, onClick = { editedTemplateId = template.id; showTemplateSelector = false })
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Checkbox(checked = editedMenu, onCheckedChange = { editedMenu = it })
                                 Text("Menu")
@@ -580,13 +614,16 @@ fun HomeScreen(
                             }
                             Button(onClick = {
                                 if (editListName.isNotBlank()) {
+                                    val shouldRepopulate = editedTemplateId != currentEditList.template_id && editedTemplateId != 0
                                     viewModel.updateList(currentEditList.copy(
                                         name = editListName,
                                         show_inventory = editedInventory,
                                         show_menu = editedMenu,
                                         show_ingredients = editedIngredients,
-                                        show_itinerary = editedItinerary
-                                    ))                                }
+                                        show_itinerary = editedItinerary,
+                                        template_id = editedTemplateId
+                                    ), clearAndRepopulate = shouldRepopulate)
+                                }
                                 showEditDialog = false
                             }) {
                                 Text("Save")

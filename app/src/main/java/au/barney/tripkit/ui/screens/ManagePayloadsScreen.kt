@@ -25,6 +25,11 @@ fun ManagePayloadsScreen(
     viewModel: ListViewModel,
     onBack: () -> Unit
 ) {
+    LaunchedEffect(Unit) {
+        viewModel.loadPayloadLocations()
+        viewModel.loadExtraPayloadProfiles()
+    }
+
     val payloadLocations by viewModel.payloadLocations.collectAsState()
     val extraPayloads by viewModel.extraPayloadProfiles.collectAsState()
     

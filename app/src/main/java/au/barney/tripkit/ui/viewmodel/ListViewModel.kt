@@ -35,11 +35,54 @@ class ListViewModel(
     private val _extraPayloadProfiles = MutableStateFlow<List<ExtraPayloadProfile>>(emptyList())
     val extraPayloadProfiles: StateFlow<List<ExtraPayloadProfile>> = _extraPayloadProfiles
 
+    private val _clipboard = MutableStateFlow<Any?>(null)
+    val clipboard: StateFlow<Any?> = _clipboard
+
     init {
         loadLists()
-        loadExtraWeightProfiles()
         loadPayloadLocations()
         loadExtraPayloadProfiles()
+    }
+
+    fun copyToClipboard(data: Any) {
+        _clipboard.value = data
+    }
+
+    fun clearClipboard() {
+        _clipboard.value = null
+    }
+
+    fun pasteFromClipboard(targetListId: Int) {
+        val data = _clipboard.value ?: return
+        viewModelScope.launch {
+            try {
+                when (data) {
+                    is MenuItem -> repository.addMenuItem(targetListId, data.day, data.meal_type, data.description)
+                    is IngredientGroup -> {
+                        val newGroupId = repository.addIngredientGroup(targetListId, data.group_name)
+                        repository.getAllIngredientsForListSync(targetListId)
+                            .filter { it.group_id == data.id }
+                            .forEach {
+                                repository.addIngredient(newGroupId.toInt(), it.ingredient_name, it.quantity.toString(), it.notes)
+                            }
+                    }
+                    is Ingredient -> {
+                        val groups = repository.getIngredientGroupsSync(targetListId)
+                        val groupId = if (groups.isNotEmpty()) groups.first().id else repository.addIngredientGroup(targetListId, "Pasted").toInt()
+                        repository.addIngredient(groupId, data.ingredient_name, data.quantity.toString(), data.notes)
+                    }
+                    is ItineraryItem -> {
+                        repository.addItineraryItem(
+                            targetListId, data.day, data.time, data.activity, data.notes,
+                            data.location, data.price, data.departure_day, data.departure_time,
+                            data.category, data.booking_ref, data.show_on_map
+                        )
+                    }
+                }
+            } catch (e: Exception) {
+                _error.value = "Paste failed: ${e.message}"
+            }
+        }
     }
 
     fun loadLists() {
@@ -88,10 +131,10 @@ class ListViewModel(
         }
     }
 
-    fun updateList(list: ListItem) {
+    fun updateList(list: ListItem, clearAndRepopulate: Boolean = false) {
         viewModelScope.launch {
             try {
-                repository.updateList(list)
+                repository.updateList(list, clearAndRepopulate)
             } catch (e: Exception) {
                 _error.value = e.message ?: "Unknown error"
             }

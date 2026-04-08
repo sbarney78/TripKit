@@ -63,6 +63,7 @@ class TemplateViewModel(private val repository: TripKitRepository) : ViewModel()
     }
 
     fun loadTemplateEntries(templateId: Int) {
+        _templateEntries.value = emptyList() // Clear previous entries to prevent "bleeding"
         viewModelScope.launch {
             repository.getTemplateEntries(templateId)
                 .catch { e -> _error.value = e.message }
