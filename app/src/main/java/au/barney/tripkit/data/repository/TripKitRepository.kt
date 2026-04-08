@@ -7,6 +7,8 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import java.text.SimpleDateFormat
 import java.util.*
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 
 class TripKitRepository(private val dao: TripKitDao) {
 
@@ -721,12 +723,14 @@ class TripKitRepository(private val dao: TripKitDao) {
     // ------------------ TEMPLATES ------------------
 
     fun getTemplates(): Flow<List<Template>> = dao.getTemplates()
+    suspend fun getTemplatesSyncList(): List<Template> = dao.getTemplatesSyncList()
     suspend fun getTemplate(id: Int) = dao.getTemplate(id)
     suspend fun addTemplate(name: String) = dao.insertTemplate(Template(name = name))
     suspend fun updateTemplate(template: Template) = dao.updateTemplate(template)
     suspend fun deleteTemplate(id: Int) = dao.deleteTemplate(id)
 
     fun getTemplateEntries(templateId: Int) = dao.getTemplateEntries(templateId)
+    suspend fun getTemplateEntriesSyncList(templateId: Int): List<TemplateEntry> = dao.getTemplateEntriesSyncList(templateId)
     suspend fun addTemplateEntry(templateId: Int, name: String, isContainer: Boolean, weightGrams: Int = 0, color: String = "#800000") {
         dao.insertTemplateEntry(TemplateEntry(template_id = templateId, name = name, is_container = isContainer, weightGrams = weightGrams, color = color))
     }
@@ -789,6 +793,7 @@ class TripKitRepository(private val dao: TripKitDao) {
     }
 
     fun getTemplateItems(entryId: Int) = dao.getTemplateItems(entryId)
+    suspend fun getTemplateItemsSync(entryId: Int): List<TemplateItem> = dao.getTemplateItemsSync(entryId)
     suspend fun addTemplateItem(entryId: Int, name: String, isContainer: Boolean, weightGrams: Int = 0, color: String = "#800000") {
         dao.insertTemplateItem(TemplateItem(template_entry_id = entryId, name = name, is_container = isContainer, weightGrams = weightGrams, color = color))
     }
@@ -812,6 +817,7 @@ class TripKitRepository(private val dao: TripKitDao) {
     }
 
     fun getTemplateSubItems(itemId: Int) = dao.getTemplateSubItems(itemId)
+    suspend fun getTemplateSubItemsSync(itemId: Int): List<TemplateSubItem> = dao.getTemplateSubItemsSync(itemId)
     suspend fun addTemplateSubItem(itemId: Int, name: String, weightGrams: Int = 0, color: String = "#800000") {
         dao.insertTemplateSubItem(TemplateSubItem(template_item_id = itemId, name = name, weightGrams = weightGrams, color = color))
     }
@@ -935,7 +941,7 @@ class TripKitRepository(private val dao: TripKitDao) {
         // Implement complex merge logic here if needed
     }
 
-    suspend fun syncAllPicturesFromMaster() {
+    suspend fun syncAllPicturesFromMaster() = coroutineScope {
         val masterEntries = dao.getMasterItemsSyncList()
         val masterItems = dao.getAllMasterSubItemsSync()
         val masterSubItems = dao.getAllMasterSubSubItemsSync()
@@ -944,7 +950,7 @@ class TripKitRepository(private val dao: TripKitDao) {
         dao.getAllEntriesSync().forEach { entry ->
             masterEntries.find { it.name.equals(entry.entry_name, ignoreCase = true) }?.let { master ->
                 if (entry.image_path != master.image_path) {
-                    dao.updateEntry(entry.copy(image_path = master.image_path))
+                    launch { dao.updateEntry(entry.copy(image_path = master.image_path)) }
                 }
             }
         }
@@ -953,7 +959,7 @@ class TripKitRepository(private val dao: TripKitDao) {
         dao.getAllItemsSync().forEach { item ->
             masterItems.find { it.name.equals(item.item_name, ignoreCase = true) }?.let { master ->
                 if (item.image_path != master.image_path) {
-                    dao.updateItem(item.copy(image_path = master.image_path))
+                    launch { dao.updateItem(item.copy(image_path = master.image_path)) }
                 }
             }
         }
@@ -962,7 +968,7 @@ class TripKitRepository(private val dao: TripKitDao) {
         dao.getAllSubItemsSync().forEach { subItem ->
             masterSubItems.find { it.name.equals(subItem.name, ignoreCase = true) }?.let { master ->
                 if (subItem.image_path != master.image_path) {
-                    dao.updateSubItem(subItem.copy(image_path = master.image_path))
+                    launch { dao.updateSubItem(subItem.copy(image_path = master.image_path)) }
                 }
             }
         }
@@ -972,21 +978,21 @@ class TripKitRepository(private val dao: TripKitDao) {
             dao.getTemplateEntriesSyncList(template.id).forEach { tEntry ->
                 masterEntries.find { it.name.equals(tEntry.name, ignoreCase = true) }?.let { master ->
                     if (tEntry.image_path != master.image_path) {
-                        dao.updateTemplateEntry(tEntry.copy(image_path = master.image_path))
+                        launch { dao.updateTemplateEntry(tEntry.copy(image_path = master.image_path)) }
                     }
                 }
                 
                 dao.getTemplateItemsSync(tEntry.id).forEach { tItem ->
                     masterItems.find { it.name.equals(tItem.name, ignoreCase = true) }?.let { master ->
                         if (tItem.image_path != master.image_path) {
-                            dao.updateTemplateItem(tItem.copy(image_path = master.image_path))
+                            launch { dao.updateTemplateItem(tItem.copy(image_path = master.image_path)) }
                         }
                     }
                     
                     dao.getTemplateSubItemsSync(tItem.id).forEach { tSub ->
                         masterSubItems.find { it.name.equals(tSub.name, ignoreCase = true) }?.let { master ->
                             if (tSub.image_path != master.image_path) {
-                                dao.updateTemplateSubItem(tSub.copy(image_path = master.image_path))
+                                launch { dao.updateTemplateSubItem(tSub.copy(image_path = master.image_path)) }
                             }
                         }
                     }

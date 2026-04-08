@@ -355,6 +355,9 @@ interface TripKitDao {
     @Query("SELECT * FROM templates ORDER BY name COLLATE NOCASE ASC")
     fun getTemplates(): Flow<List<Template>>
 
+    @Query("SELECT * FROM templates")
+    suspend fun getTemplatesSyncList(): List<Template>
+
     @Query("SELECT * FROM templates WHERE id = :templateId")
     suspend fun getTemplate(templateId: Int): Template?
 
@@ -372,6 +375,12 @@ interface TripKitDao {
 
     @Query("SELECT * FROM template_entries WHERE template_id = :templateId ORDER BY name COLLATE NOCASE ASC")
     suspend fun getTemplateEntriesSync(templateId: Int): List<TemplateEntry>
+
+    @Query("SELECT * FROM template_entries WHERE template_id = :templateId ORDER BY name COLLATE NOCASE ASC")
+    suspend fun getTemplateEntriesSyncList(templateId: Int): List<TemplateEntry>
+
+    @Query("SELECT * FROM template_entries")
+    suspend fun getAllTemplateEntriesSync(): List<TemplateEntry>
 
     @Query("SELECT * FROM template_entries WHERE id = :id")
     suspend fun getTemplateEntrySync(id: Int): TemplateEntry?
@@ -403,6 +412,9 @@ interface TripKitDao {
     @Query("SELECT * FROM template_items WHERE template_entry_id = :entryId ORDER BY name COLLATE NOCASE ASC")
     suspend fun getTemplateItemsSync(entryId: Int): List<TemplateItem>
 
+    @Query("SELECT * FROM template_items")
+    suspend fun getAllTemplateItemsSync(): List<TemplateItem>
+
     @Query("SELECT * FROM template_items WHERE id = :id")
     suspend fun getTemplateItemSync(id: Int): TemplateItem?
 
@@ -432,6 +444,9 @@ interface TripKitDao {
 
     @Query("SELECT * FROM template_sub_items WHERE template_item_id = :itemId ORDER BY name COLLATE NOCASE ASC")
     suspend fun getTemplateSubItemsSync(itemId: Int): List<TemplateSubItem>
+
+    @Query("SELECT * FROM template_sub_items")
+    suspend fun getAllTemplateSubItemsSync(): List<TemplateSubItem>
 
     @Query("SELECT * FROM template_sub_items WHERE id = :id")
     suspend fun getTemplateSubItemSync(id: Int): TemplateSubItem?
