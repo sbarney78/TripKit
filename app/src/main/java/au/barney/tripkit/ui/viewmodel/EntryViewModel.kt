@@ -95,10 +95,10 @@ class EntryViewModel(
 
     // ------------------ ADD ENTRY ------------------
 
-    fun addEntry(listId: Int, name: String, quantity: Int, notes: String?, entryType: String, imagePath: String? = null, addToMaster: Boolean = false, color: String = "#800000", weightGrams: Int = 0) {
+    fun addEntry(listId: Int, name: String, quantity: Int, notes: String?, entryType: String, imagePath: String? = null, addToMaster: Boolean = false, color: String = "#800000", weightGrams: Int = 0, payloadLocationId: Int? = null) {
         viewModelScope.launch {
             try {
-                repository.addEntry(name, entryType, quantity, notes, listId, imagePath, addToMaster, color, weightGrams)
+                repository.addEntry(name, entryType, quantity, notes, listId, imagePath, addToMaster, color, weightGrams, payloadLocationId)
             } catch (e: Exception) {
                 _error.value = e.message ?: "Unknown error"
             }
@@ -117,11 +117,26 @@ class EntryViewModel(
         listId: Int,
         imagePath: String? = null,
         color: String = "#800000",
-        weightGrams: Int? = null
+        weightGrams: Int = 0,
+        payloadLocationId: Int? = null
     ) {
         viewModelScope.launch {
             try {
-                repository.updateEntry(entryId, name, quantity, notes, entryType, imagePath, color, weightGrams)
+                repository.updateEntry(
+                    Entry(
+                        entry_id = entryId,
+                        entry_name = name,
+                        quantity = quantity,
+                        notes = notes,
+                        entry_type = entryType,
+                        list_id = listId,
+                        image_path = imagePath,
+                        color = color,
+                        weightGrams = weightGrams,
+                        payloadLocationId = payloadLocationId,
+                        is_checked = _currentEntry.value?.is_checked ?: 0
+                    )
+                )
             } catch (e: Exception) {
                 _error.value = e.message ?: "Unknown error"
             }

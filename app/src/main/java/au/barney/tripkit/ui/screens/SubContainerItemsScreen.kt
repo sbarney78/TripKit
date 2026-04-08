@@ -22,6 +22,9 @@ import androidx.compose.ui.unit.dp
 import au.barney.tripkit.data.model.SubItem
 import au.barney.tripkit.ui.viewmodel.ItemViewModel
 import au.barney.tripkit.ui.components.DraggableFAB
+import au.barney.tripkit.ui.components.WeightInput
+import au.barney.tripkit.ui.components.convertToGrams
+import au.barney.tripkit.ui.components.formatWeightForInput
 import au.barney.tripkit.util.WeightUtils
 import coil.compose.AsyncImage
 
@@ -44,6 +47,8 @@ fun SubContainerItemsScreen(
     var itemQty by remember { mutableStateOf("1") }
     var itemNotes by remember { mutableStateOf("") }
     var imagePath by remember { mutableStateOf<String?>(null) }
+    var weightInput by remember { mutableStateOf("") }
+    var weightUnit by remember { mutableStateOf("g") }
 
     var showMasterDialog by remember { mutableStateOf(false) }
 
@@ -54,12 +59,24 @@ fun SubContainerItemsScreen(
     // Add Dialog
     if (showAddDialog) {
         AlertDialog(
-            onDismissRequest = { showAddDialog = false },
+            onDismissRequest = { 
+                showAddDialog = false
+                itemName = ""; itemQty = "1"; itemNotes = ""; imagePath = null; weightInput = ""; weightUnit = "g"
+            },
             title = { Text("Add Item to ${currentItem?.item_name ?: "Sub-container"}") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(value = itemName, onValueChange = { itemName = it }, label = { Text("Item Name") }, modifier = Modifier.fillMaxWidth())
                     OutlinedTextField(value = itemQty, onValueChange = { itemQty = it }, label = { Text("Quantity") }, modifier = Modifier.fillMaxWidth())
+                    
+                    WeightInput(
+                        weightInput = weightInput,
+                        onWeightInputChange = { weightInput = it },
+                        weightUnit = weightUnit,
+                        onWeightUnitChange = { weightUnit = it },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
                     OutlinedTextField(value = itemNotes, onValueChange = { itemNotes = it }, label = { Text("Notes") }, modifier = Modifier.fillMaxWidth())
                     ImagePicker(currentImagePath = imagePath, onImageSelected = { imagePath = it })
                 }
@@ -72,7 +89,10 @@ fun SubContainerItemsScreen(
                 }) { Text("Add") }
             },
             dismissButton = {
-                TextButton(onClick = { showAddDialog = false }) { Text("Cancel") }
+                TextButton(onClick = { 
+                    showAddDialog = false
+                    itemName = ""; itemQty = "1"; itemNotes = ""; imagePath = null; weightInput = ""; weightUnit = "g"
+                }) { Text("Cancel") }
             }
         )
     }
@@ -84,16 +104,18 @@ fun SubContainerItemsScreen(
             text = { Text("'$itemName' is being added. Would you like to add it to the Master Inventory for future use?") },
             confirmButton = {
                 Button(onClick = {
-                    viewModel.addSubItem(parentItemId, itemName, itemQty.toIntOrNull() ?: 1, itemNotes, imagePath, addToMaster = true)
-                    itemName = ""; itemQty = "1"; itemNotes = ""; imagePath = null
+                    val weightGrams = convertToGrams(weightInput, weightUnit)
+                    viewModel.addSubItem(itemName, itemQty.toIntOrNull() ?: 1, itemNotes, parentItemId, imagePath, addToMaster = true, weightGrams = weightGrams)
+                    itemName = ""; itemQty = "1"; itemNotes = ""; imagePath = null; weightInput = ""; weightUnit = "g"
                     showMasterDialog = false
                     showAddDialog = false
                 }) { Text("Add & Save") }
             },
             dismissButton = {
-                TextButton(onClick = {
-                    viewModel.addSubItem(parentItemId, itemName, itemQty.toIntOrNull() ?: 1, itemNotes, imagePath, addToMaster = false)
-                    itemName = ""; itemQty = "1"; itemNotes = ""; imagePath = null
+                Button(onClick = {
+                    val weightGrams = convertToGrams(weightInput, weightUnit)
+                    viewModel.addSubItem(itemName, itemQty.toIntOrNull() ?: 1, itemNotes, parentItemId, imagePath, addToMaster = false, weightGrams = weightGrams)
+                    itemName = ""; itemQty = "1"; itemNotes = ""; imagePath = null; weightInput = ""; weightUnit = "g"
                     showMasterDialog = false
                     showAddDialog = false
                 }) { Text("Save Only") }
@@ -107,6 +129,14 @@ fun SubContainerItemsScreen(
         var editQty by remember { mutableStateOf(editingItem!!.quantity.toString()) }
         var editNotes by remember { mutableStateOf(editingItem!!.notes ?: "") }
         var editImagePath by remember { mutableStateOf(editingItem!!.image_path) }
+        var editWeightInput by remember { 
+            val (input, _) = formatWeightForInput(editingItem!!.weightGrams)
+            mutableStateOf(input)
+        }
+        var editWeightUnit by remember {
+            val (_, unit) = formatWeightForInput(editingItem!!.weightGrams)
+            mutableStateOf(unit)
+        }
 
         AlertDialog(
             onDismissRequest = { showEditDialog = false },
@@ -115,6 +145,15 @@ fun SubContainerItemsScreen(
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(value = editName, onValueChange = { editName = it }, label = { Text("Item Name") }, modifier = Modifier.fillMaxWidth())
                     OutlinedTextField(value = editQty, onValueChange = { editQty = it }, label = { Text("Quantity") }, modifier = Modifier.fillMaxWidth())
+                    
+                    WeightInput(
+                        weightInput = editWeightInput,
+                        onWeightInputChange = { editWeightInput = it },
+                        weightUnit = editWeightUnit,
+                        onWeightUnitChange = { editWeightUnit = it },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
                     OutlinedTextField(value = editNotes, onValueChange = { editNotes = it }, label = { Text("Notes") }, modifier = Modifier.fillMaxWidth())
                     ImagePicker(currentImagePath = editImagePath, onImageSelected = { editImagePath = it })
                 }
@@ -122,11 +161,13 @@ fun SubContainerItemsScreen(
             confirmButton = {
                 Button(onClick = {
                     if (editName.isNotBlank()) {
+                        val weightGrams = convertToGrams(editWeightInput, editWeightUnit)
                         viewModel.updateSubItem(editingItem!!.copy(
                             name = editName,
                             quantity = editQty.toIntOrNull() ?: 1,
                             notes = editNotes,
-                            image_path = editImagePath
+                            image_path = editImagePath,
+                            weightGrams = weightGrams
                         ))
                         showEditDialog = false
                     }

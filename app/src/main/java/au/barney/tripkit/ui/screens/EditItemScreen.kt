@@ -17,7 +17,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import au.barney.tripkit.data.model.Item
+import au.barney.tripkit.data.model.PayloadLocation
 import au.barney.tripkit.ui.viewmodel.ItemViewModel
+import au.barney.tripkit.ui.viewmodel.ListViewModel
+import au.barney.tripkit.ui.components.WeightInput
+import au.barney.tripkit.ui.components.convertToGrams
+import au.barney.tripkit.ui.components.formatWeightForInput
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
@@ -27,11 +33,13 @@ import androidx.compose.material.icons.filled.ArrowBack
 fun EditItemScreen(
     itemId: Int,
     viewModel: ItemViewModel,
+    listViewModel: ListViewModel,
     onBack: () -> Unit
 ) {
     val loading by viewModel.loading.collectAsState()
     val error by viewModel.error.collectAsState()
     val item by viewModel.currentItem.collectAsState()
+    val payloadLocations by listViewModel.payloadLocations.collectAsState()
 
     // Reload item every time itemId changes
     LaunchedEffect(itemId) {
@@ -76,26 +84,21 @@ fun EditItemScreen(
                 }
 
                 item != null -> {
-                    val currentItem = item!!
                     EditItemForm(
-                        itemId = itemId,
-                        nameInitial = currentItem.item_name,
-                        quantityInitial = currentItem.quantity,
-                        notesInitial = currentItem.notes ?: "",
-                        isContainerInitial = currentItem.is_container,
-                        imagePathInitial = currentItem.image_path,
-                        colorInitial = currentItem.color,
-                        weightGramsInitial = currentItem.weightGrams,
-                        onSave = { name, quantity, notes, isContainer, imagePath, color, weightGrams ->
+                        item = item!!,
+                        payloadLocations = payloadLocations,
+                        onSave = { name, quantity, notes, isContainer, entryId, imagePath, color, weightGrams, payloadId ->
                             viewModel.updateItem(
                                 itemId = itemId,
                                 name = name,
                                 quantity = quantity,
                                 notes = notes,
                                 isContainer = isContainer,
+                                entryId = entryId,
                                 imagePath = imagePath,
                                 color = color,
-                                weightGrams = weightGrams
+                                weightGrams = weightGrams,
+                                payloadLocationId = payloadId
                             )
                             onBack()
                         }
@@ -106,30 +109,29 @@ fun EditItemScreen(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun EditItemForm(
-    itemId: Int,
-    nameInitial: String,
-    quantityInitial: Int,
-    notesInitial: String,
-    isContainerInitial: Boolean,
-    imagePathInitial: String?,
-    colorInitial: String,
-    weightGramsInitial: Int,
-    onSave: (String, Int, String?, Boolean, String?, String, Int) -> Unit
+    item: Item,
+    payloadLocations: List<PayloadLocation>,
+    onSave: (String, Int, String?, Boolean, Int, String?, String, Int, Int?) -> Unit
 ) {
-    var name by remember(itemId) { mutableStateOf(nameInitial) }
-    var quantity by remember(itemId) { mutableStateOf(quantityInitial.toString()) }
-    var notes by remember(itemId) { mutableStateOf(notesInitial) }
-    var isContainer by remember(itemId) { mutableStateOf(isContainerInitial) }
-    var imagePath by remember(itemId) { mutableStateOf(imagePathInitial) }
-    var colorHex by remember(itemId) { mutableStateOf(colorInitial) }
+    var name by remember(item) { mutableStateOf(item.item_name) }
+    var quantity by remember(item) { mutableStateOf(item.quantity.toString()) }
+    var notes by remember(item) { mutableStateOf(item.notes ?: "") }
+    var isContainer by remember(item) { mutableStateOf(item.is_container) }
+    var imagePath by remember(item) { mutableStateOf(item.image_path) }
+    var colorHex by remember(item) { mutableStateOf(item.color) }
+    var payloadId by remember(item) { mutableStateOf(item.payloadLocationId) }
 
-    var weightInput by remember(itemId) {
-        val grams = weightGramsInitial
-        mutableStateOf(if (grams >= 1000) (grams / 1000.0).toString() else grams.toString())
+    var weightInput by remember(item) {
+        val (input, _) = formatWeightForInput(item.weightGrams)
+        mutableStateOf(input)
     }
-    var weightUnit by remember(itemId) { mutableStateOf(if (weightGramsInitial >= 1000) "kg" else "g") }
+    var weightUnit by remember(item) {
+        val (_, unit) = formatWeightForInput(item.weightGrams)
+        mutableStateOf(unit)
+    }
 
     val presetColors = listOf(
         "#800000", "#FF0000", "#FF4500", "#FF8C00", "#FFD700",
@@ -161,23 +163,50 @@ private fun EditItemForm(
         }
 
         item {
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+            WeightInput(
+                weightInput = weightInput,
+                onWeightInputChange = { weightInput = it },
+                weightUnit = weightUnit,
+                onWeightUnitChange = { weightUnit = it },
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+
+        item {
+            var expanded by remember { mutableStateOf(false) }
+            val selectedPayloadName = payloadLocations.find { it.id == payloadId }?.name ?: "Unassigned"
+
+            ExposedDropdownMenuBox(
+                expanded = expanded,
+                onExpandedChange = { expanded = !expanded }
+            ) {
                 OutlinedTextField(
-                    value = weightInput,
-                    onValueChange = { weightInput = it },
-                    label = { Text("Weight (Each)") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    modifier = Modifier.weight(1f)
+                    value = selectedPayloadName,
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Payload Location") },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                    modifier = Modifier.fillMaxWidth().menuAnchor()
                 )
-                Spacer(Modifier.width(8.dp))
-                var unitExpanded by remember { mutableStateOf(false) }
-                Box {
-                    TextButton(onClick = { unitExpanded = true }) {
-                        Text(weightUnit)
-                    }
-                    DropdownMenu(expanded = unitExpanded, onDismissRequest = { unitExpanded = false }) {
-                        DropdownMenuItem(text = { Text("g") }, onClick = { weightUnit = "g"; unitExpanded = false })
-                        DropdownMenuItem(text = { Text("kg") }, onClick = { weightUnit = "kg"; unitExpanded = false })
+                ExposedDropdownMenu(
+                    expanded = expanded,
+                    onDismissRequest = { expanded = false }
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("Unassigned") },
+                        onClick = {
+                            payloadId = null
+                            expanded = false
+                        }
+                    )
+                    payloadLocations.forEach { location ->
+                        DropdownMenuItem(
+                            text = { Text(location.name) },
+                            onClick = {
+                                payloadId = location.id
+                                expanded = false
+                            }
+                        )
                     }
                 }
             }
@@ -197,7 +226,7 @@ private fun EditItemForm(
                 Checkbox(
                     checked = isContainer,
                     onCheckedChange = { isContainer = it },
-                    enabled = !isContainerInitial // Cannot change back to single item if already a container
+                    enabled = !item.is_container // Cannot change back to single item if already a container
                 )
                 Text("Is this a sub-container?")
             }
@@ -238,13 +267,10 @@ private fun EditItemForm(
         item {
             Button(
                 onClick = {
-                    val qty = quantity.toIntOrNull() ?: 1
-                    val weightGrams = try {
-                        val value = weightInput.toDouble()
-                        if (weightUnit == "kg") (value * 1000).toInt() else value.toInt()
-                    } catch (e: Exception) { weightGramsInitial }
+                    val qtyVal = quantity.toIntOrNull() ?: 1
+                    val weightGrams = convertToGrams(weightInput, weightUnit)
 
-                    onSave(name, qty, notes, isContainer, imagePath, colorHex, weightGrams)
+                    onSave(name, qtyVal, notes, isContainer, item.entry_id, imagePath, colorHex, weightGrams, payloadId)
                 },
                 modifier = Modifier.fillMaxWidth()
             ) {

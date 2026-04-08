@@ -74,7 +74,7 @@ class MasterItemViewModel(
     fun addMasterItem(name: String, isContainer: Boolean, imagePath: String? = null, color: String = "#800000", weightGrams: Int = 0) {
         viewModelScope.launch {
             try {
-                repository.addMasterItem(name, isContainer, imagePath, color, weightGrams)
+                repository.addMasterItem(name, isContainer, weightGrams, imagePath, color)
             } catch (e: Exception) {
                 _error.value = e.message ?: "Unknown error"
             }
@@ -133,15 +133,7 @@ class MasterItemViewModel(
     fun addMasterSubItem(masterItemId: Int, name: String, qty: Int, isContainer: Boolean, imagePath: String? = null, color: String = "#800000", weightGrams: Int = 0) {
         viewModelScope.launch {
             try {
-                repository.insertMasterSubItem(MasterSubItem(
-                    master_item_id = masterItemId, 
-                    name = name, 
-                    default_quantity = qty, 
-                    is_container = isContainer,
-                    image_path = imagePath,
-                    color = color,
-                    weightGrams = weightGrams
-                ))
+                repository.addMasterSubItem(masterItemId, name, isContainer, weightGrams, imagePath, color)
             } catch (e: Exception) {
                 _error.value = e.message
             }
@@ -186,14 +178,7 @@ class MasterItemViewModel(
     fun addMasterSubSubItem(subItemId: Int, name: String, qty: Int, isContainer: Boolean, imagePath: String? = null, weightGrams: Int = 0) {
         viewModelScope.launch {
             try {
-                repository.insertMasterSubSubItem(MasterSubSubItem(
-                    master_sub_item_id = subItemId,
-                    name = name,
-                    default_quantity = qty,
-                    is_container = isContainer,
-                    image_path = imagePath,
-                    weightGrams = weightGrams
-                ))
+                repository.addMasterSubSubItem(subItemId, name, weightGrams, imagePath)
             } catch (e: Exception) {
                 _error.value = e.message
             }
@@ -214,16 +199,6 @@ class MasterItemViewModel(
         viewModelScope.launch {
             try {
                 repository.deleteMasterSubSubItem(id)
-            } catch (e: Exception) {
-                _error.value = e.message
-            }
-        }
-    }
-
-    fun syncPictures() {
-        viewModelScope.launch {
-            try {
-                repository.syncMasterPictures()
             } catch (e: Exception) {
                 _error.value = e.message
             }

@@ -24,9 +24,12 @@ import au.barney.tripkit.data.model.*
         TemplateEntry::class,
         TemplateItem::class,
         TemplateSubItem::class,
-        ExtraWeightProfile::class
+        ExtraWeightProfile::class,
+        PayloadLocation::class,
+        ExtraPayloadProfile::class,
+        ListExtraPayload::class
     ],
-    version = 18,
+    version = 20,
     autoMigrations = [
         AutoMigration(from = 5, to = 6),
         AutoMigration(from = 6, to = 7),
@@ -39,7 +42,9 @@ import au.barney.tripkit.data.model.*
         AutoMigration(from = 13, to = 14),
         AutoMigration(from = 14, to = 15),
         AutoMigration(from = 15, to = 16),
-        AutoMigration(from = 16, to = 18)
+        AutoMigration(from = 16, to = 18),
+        AutoMigration(from = 18, to = 19),
+        AutoMigration(from = 19, to = 20)
     ],
     exportSchema = true
 )

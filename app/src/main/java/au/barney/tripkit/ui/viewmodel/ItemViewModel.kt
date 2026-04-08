@@ -107,12 +107,12 @@ class ItemViewModel(
 
     // ------------------ ADD ITEM ------------------
 
-    fun addItem(name: String, quantity: Int, notes: String?, isContainer: Boolean, imagePath: String? = null, addToMaster: Boolean = true, color: String = "#800000", weightGrams: Int = 0) {
+    fun addItem(name: String, quantity: Int, notes: String?, isContainer: Boolean, imagePath: String? = null, addToMaster: Boolean = true, color: String = "#800000", weightGrams: Int = 0, payloadLocationId: Int? = null) {
         if (currentEntryId == -1) return
 
         viewModelScope.launch {
             try {
-                repository.addItem(currentEntryId, name, quantity, notes, isContainer, imagePath, addToMaster, color, weightGrams)
+                repository.addItem(name, quantity, notes, currentEntryId, isContainer, imagePath, addToMaster, color, weightGrams, payloadLocationId)
             } catch (e: Exception) {
                 _error.value = e.message ?: "Unknown error"
             }
@@ -166,10 +166,24 @@ class ItemViewModel(
 
     // ------------------ UPDATE ITEM ------------------
 
-    fun updateItem(itemId: Int, name: String, quantity: Int, notes: String?, isContainer: Boolean, imagePath: String? = null, color: String = "#800000", weightGrams: Int? = null) {
+    fun updateItem(itemId: Int, name: String, quantity: Int, notes: String?, isContainer: Boolean, entryId: Int, imagePath: String? = null, color: String = "#800000", weightGrams: Int = 0, payloadLocationId: Int? = null) {
         viewModelScope.launch {
             try {
-                repository.updateItem(itemId, name, quantity, notes, isContainer, imagePath, color, weightGrams)
+                repository.updateItem(
+                    Item(
+                        item_id = itemId,
+                        item_name = name,
+                        quantity = quantity,
+                        notes = notes,
+                        is_container = isContainer,
+                        entry_id = entryId,
+                        image_path = imagePath,
+                        color = color,
+                        weightGrams = weightGrams,
+                        payloadLocationId = payloadLocationId,
+                        is_checked = _currentItem.value?.is_checked ?: 0
+                    )
+                )
             } catch (e: Exception) {
                 _error.value = e.message ?: "Unknown error"
             }
@@ -180,10 +194,19 @@ class ItemViewModel(
 
     fun getSubItems(itemId: Int): Flow<List<SubItem>> = repository.getSubItems(itemId)
 
-    fun addSubItem(itemId: Int, name: String, quantity: Int, notes: String?, imagePath: String? = null, addToMaster: Boolean = true, weightGrams: Int = 0) {
+    fun addSubItem(name: String, quantity: Int, notes: String?, itemId: Int, imagePath: String? = null, addToMaster: Boolean = true, weightGrams: Int = 0, payloadLocationId: Int? = null) {
         viewModelScope.launch {
             try {
-                repository.addSubItem(itemId, name, quantity, notes, imagePath, addToMaster, weightGrams)
+                repository.addSubItem(
+                    name = name,
+                    quantity = quantity,
+                    notes = notes,
+                    itemId = itemId,
+                    imagePath = imagePath,
+                    addToMaster = addToMaster,
+                    weightGrams = weightGrams,
+                    payloadLocationId = payloadLocationId
+                )
             } catch (e: Exception) {
                 _error.value = e.message
             }

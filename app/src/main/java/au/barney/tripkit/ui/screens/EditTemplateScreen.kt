@@ -110,7 +110,13 @@ fun EditTemplateScreen(
                             DropdownMenuItem(
                                 text = { Text(item.name) },
                                 onClick = {
-                                    templateViewModel.addFromMaster(templateId, item.id)
+                                    templateViewModel.addFromMaster(
+                                        templateId = templateId, 
+                                        name = item.name, 
+                                        isContainer = item.is_container, 
+                                        weightGrams = item.weightGrams, 
+                                        color = item.color
+                                    )
                                     showAddFromMasterDialog = false
                                 },
                                 leadingIcon = {

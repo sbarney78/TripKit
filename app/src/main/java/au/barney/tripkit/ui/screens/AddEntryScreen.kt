@@ -19,13 +19,18 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import au.barney.tripkit.ui.viewmodel.EntryViewModel
+import au.barney.tripkit.ui.viewmodel.ListViewModel
 import au.barney.tripkit.ui.viewmodel.MasterItemViewModel
+import au.barney.tripkit.ui.components.WeightInput
+import au.barney.tripkit.ui.components.convertToGrams
+import au.barney.tripkit.ui.components.formatWeightForInput
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddEntryScreen(
     listId: Int,
     viewModel: EntryViewModel,
+    listViewModel: ListViewModel,
     masterViewModel: MasterItemViewModel,
     onDone: () -> Unit
 ) {
@@ -35,11 +40,14 @@ fun AddEntryScreen(
     var type by remember { mutableStateOf("single") }
     var colorHex by remember { mutableStateOf("#800000") }
     var imagePath by remember { mutableStateOf<String?>(null) }
+    var payloadId by remember { mutableStateOf<Int?>(null) }
     
     var weightInput by remember { mutableStateOf("") }
     var weightUnit by remember { mutableStateOf("g") }
 
     val masterItems by masterViewModel.masterItems.collectAsState()
+    val payloadLocations by listViewModel.payloadLocations.collectAsState()
+    
     var showDropdown by remember { mutableStateOf(false) }
     val filteredMasterItems = remember(name, showDropdown) {
         if (!showDropdown || name.isEmpty()) emptyList()
@@ -99,8 +107,9 @@ fun AddEntryScreen(
                                             type = if (item.is_container) "container" else "single"
                                             imagePath = item.image_path
                                             colorHex = item.color
-                                            weightInput = if (item.weightGrams >= 1000) (item.weightGrams / 1000.0).toString() else item.weightGrams.toString()
-                                            weightUnit = if (item.weightGrams >= 1000) "kg" else "g"
+                                            val (input, unit) = formatWeightForInput(item.weightGrams)
+                                            weightInput = input
+                                            weightUnit = unit
                                             showDropdown = false
                                         }
                                     )
@@ -122,23 +131,50 @@ fun AddEntryScreen(
             }
 
             item {
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                WeightInput(
+                    weightInput = weightInput,
+                    onWeightInputChange = { weightInput = it },
+                    weightUnit = weightUnit,
+                    onWeightUnitChange = { weightUnit = it },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+
+            item {
+                var expanded by remember { mutableStateOf(false) }
+                val selectedPayloadName = payloadLocations.find { it.id == payloadId }?.name ?: "Unassigned"
+
+                ExposedDropdownMenuBox(
+                    expanded = expanded,
+                    onExpandedChange = { expanded = !expanded }
+                ) {
                     OutlinedTextField(
-                        value = weightInput,
-                        onValueChange = { weightInput = it },
-                        label = { Text("Weight (Each)") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                        modifier = Modifier.weight(1f)
+                        value = selectedPayloadName,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Payload Location") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                        modifier = Modifier.fillMaxWidth().menuAnchor()
                     )
-                    Spacer(Modifier.width(8.dp))
-                    var unitExpanded by remember { mutableStateOf(false) }
-                    Box {
-                        TextButton(onClick = { unitExpanded = true }) {
-                            Text(weightUnit)
-                        }
-                        DropdownMenu(expanded = unitExpanded, onDismissRequest = { unitExpanded = false }) {
-                            DropdownMenuItem(text = { Text("g") }, onClick = { weightUnit = "g"; unitExpanded = false })
-                            DropdownMenuItem(text = { Text("kg") }, onClick = { weightUnit = "kg"; unitExpanded = false })
+                    ExposedDropdownMenu(
+                        expanded = expanded,
+                        onDismissRequest = { expanded = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Unassigned") },
+                            onClick = {
+                                payloadId = null
+                                expanded = false
+                            }
+                        )
+                        payloadLocations.forEach { location ->
+                            DropdownMenuItem(
+                                text = { Text(location.name) },
+                                onClick = {
+                                    payloadId = location.id
+                                    expanded = false
+                                }
+                            )
                         }
                     }
                 }
@@ -219,17 +255,14 @@ fun AddEntryScreen(
                 Button(
                     onClick = {
                         val qty = quantity.toIntOrNull() ?: 1
-                        val weightGrams = try {
-                            val value = weightInput.toDouble()
-                            if (weightUnit == "kg") (value * 1000).toInt() else value.toInt()
-                        } catch (e: Exception) { 0 }
+                        val weightGrams = convertToGrams(weightInput, weightUnit)
 
                         val exactMatch = masterItems.any { it.name.equals(name, ignoreCase = true) }
 
                         if (!exactMatch && name.isNotBlank()) {
                             showMasterDialog = true
                         } else {
-                            viewModel.addEntry(listId, name, qty, notes, type, imagePath, addToMaster = false, color = colorHex, weightGrams = weightGrams)
+                            viewModel.addEntry(listId, name, qty, notes, type, imagePath, addToMaster = false, color = colorHex, weightGrams = weightGrams, payloadLocationId = payloadId)
                             onDone()
                         }
                     },
@@ -249,12 +282,9 @@ fun AddEntryScreen(
             confirmButton = {
                 Button(onClick = {
                     val qty = quantity.toIntOrNull() ?: 1
-                    val weightGrams = try {
-                        val value = weightInput.toDouble()
-                        if (weightUnit == "kg") (value * 1000).toInt() else value.toInt()
-                    } catch (e: Exception) { 0 }
+                    val weightGrams = convertToGrams(weightInput, weightUnit)
 
-                    viewModel.addEntry(listId, name, qty, notes, type, imagePath, addToMaster = true, color = colorHex, weightGrams = weightGrams)
+                    viewModel.addEntry(listId, name, qty, notes, type, imagePath, addToMaster = true, color = colorHex, weightGrams = weightGrams, payloadLocationId = payloadId)
                     showMasterDialog = false
                     onDone()
                 }) { Text("Add & Save") }
@@ -262,12 +292,9 @@ fun AddEntryScreen(
             dismissButton = {
                 TextButton(onClick = {
                     val qty = quantity.toIntOrNull() ?: 1
-                    val weightGrams = try {
-                        val value = weightInput.toDouble()
-                        if (weightUnit == "kg") (value * 1000).toInt() else value.toInt()
-                    } catch (e: Exception) { 0 }
+                    val weightGrams = convertToGrams(weightInput, weightUnit)
 
-                    viewModel.addEntry(listId, name, qty, notes, type, imagePath, addToMaster = false, color = colorHex, weightGrams = weightGrams)
+                    viewModel.addEntry(listId, name, qty, notes, type, imagePath, addToMaster = false, color = colorHex, weightGrams = weightGrams, payloadLocationId = payloadId)
                     showMasterDialog = false
                     onDone()
                 }) { Text("Save Only") }

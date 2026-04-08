@@ -15,9 +15,15 @@ import java.util.UUID
             parentColumns = ["item_id"],
             childColumns = ["item_id"],
             onDelete = ForeignKey.CASCADE
+        ),
+        ForeignKey(
+            entity = PayloadLocation::class,
+            parentColumns = ["id"],
+            childColumns = ["payloadLocationId"],
+            onDelete = ForeignKey.SET_NULL
         )
     ],
-    indices = [Index(value = ["item_id"])]
+    indices = [Index(value = ["item_id"]), Index("payloadLocationId")]
 )
 data class SubItem(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
@@ -34,5 +40,7 @@ data class SubItem(
     @ColumnInfo(defaultValue = "#800000")
     val color: String = "#800000",
     @ColumnInfo(defaultValue = "0")
-    val weightGrams: Int = 0
+    val weightGrams: Int = 0,
+    @ColumnInfo(defaultValue = "NULL")
+    val payloadLocationId: Int? = null
 )

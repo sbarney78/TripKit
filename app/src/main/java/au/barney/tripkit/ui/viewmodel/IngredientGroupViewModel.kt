@@ -64,10 +64,10 @@ class IngredientGroupViewModel(
         }
     }
 
-    fun updateGroup(groupId: Int, name: String) {
+    fun updateGroup(group: IngredientGroup) {
         viewModelScope.launch {
             try {
-                repository.updateIngredientGroup(groupId, name)
+                repository.updateIngredientGroup(group)
             } catch (e: Exception) {
                 _error.value = e.message ?: "Unknown error"
             }

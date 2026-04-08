@@ -19,7 +19,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import au.barney.tripkit.data.model.Entry
+import au.barney.tripkit.data.model.PayloadLocation
 import au.barney.tripkit.ui.viewmodel.EntryViewModel
+import au.barney.tripkit.ui.viewmodel.ListViewModel
+import au.barney.tripkit.ui.components.WeightInput
+import au.barney.tripkit.ui.components.convertToGrams
+import au.barney.tripkit.ui.components.formatWeightForInput
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
@@ -30,9 +35,11 @@ fun EditEntryScreen(
     listId: Int,
     entryId: Int,
     viewModel: EntryViewModel,
+    listViewModel: ListViewModel,
     onBack: () -> Unit
 ) {
     val entry by viewModel.currentEntry.collectAsState()
+    val payloadLocations by listViewModel.payloadLocations.collectAsState()
 
     // Reload entry every time entryId changes
     LaunchedEffect(entryId) {
@@ -66,7 +73,8 @@ fun EditEntryScreen(
 
         EditEntryForm(
             entry = entry!!,
-            onSave = { name, qty, notes, type, imagePath, color, weightGrams ->
+            payloadLocations = payloadLocations,
+            onSave = { name, qty, notes, type, imagePath, color, weightGrams, payloadId ->
                 viewModel.updateEntry(
                     entryId = entryId,
                     name = name,
@@ -76,7 +84,8 @@ fun EditEntryScreen(
                     listId = listId,
                     imagePath = imagePath,
                     color = color,
-                    weightGrams = weightGrams
+                    weightGrams = weightGrams,
+                    payloadLocationId = payloadId
                 )
                 onBack()
             },
@@ -86,10 +95,12 @@ fun EditEntryScreen(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EditEntryForm(
     entry: Entry,
-    onSave: (String, Int, String, String, String?, String, Int) -> Unit,
+    payloadLocations: List<PayloadLocation>,
+    onSave: (String, Int, String, String, String?, String, Int, Int?) -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -100,12 +111,16 @@ fun EditEntryForm(
     var type by remember(entry) { mutableStateOf(entry.entry_type) }
     var imagePath by remember(entry) { mutableStateOf(entry.image_path) }
     var colorHex by remember(entry) { mutableStateOf(entry.color) }
-    
+    var payloadId by remember(entry) { mutableStateOf(entry.payloadLocationId) }
+
     var weightInput by remember(entry) {
-        val grams = entry.weightGrams
-        mutableStateOf(if (grams >= 1000) (grams / 1000.0).toString() else grams.toString())
+        val (input, _) = formatWeightForInput(entry.weightGrams)
+        mutableStateOf(input)
     }
-    var weightUnit by remember(entry) { mutableStateOf(if (entry.weightGrams >= 1000) "kg" else "g") }
+    var weightUnit by remember(entry) {
+        val (_, unit) = formatWeightForInput(entry.weightGrams)
+        mutableStateOf(unit)
+    }
 
     val isContainer = entry.entry_type == "container"
 
@@ -141,23 +156,50 @@ fun EditEntryForm(
         }
 
         item {
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+            WeightInput(
+                weightInput = weightInput,
+                onWeightInputChange = { weightInput = it },
+                weightUnit = weightUnit,
+                onWeightUnitChange = { weightUnit = it },
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+
+        item {
+            var expanded by remember { mutableStateOf(false) }
+            val selectedPayloadName = payloadLocations.find { it.id == payloadId }?.name ?: "Unassigned"
+
+            ExposedDropdownMenuBox(
+                expanded = expanded,
+                onExpandedChange = { expanded = !expanded }
+            ) {
                 OutlinedTextField(
-                    value = weightInput,
-                    onValueChange = { weightInput = it },
-                    label = { Text("Weight (Each)") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    modifier = Modifier.weight(1f)
+                    value = selectedPayloadName,
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Payload Location") },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                    modifier = Modifier.fillMaxWidth().menuAnchor()
                 )
-                Spacer(Modifier.width(8.dp))
-                var unitExpanded by remember { mutableStateOf(false) }
-                Box {
-                    TextButton(onClick = { unitExpanded = true }) {
-                        Text(weightUnit)
-                    }
-                    DropdownMenu(expanded = unitExpanded, onDismissRequest = { unitExpanded = false }) {
-                        DropdownMenuItem(text = { Text("g") }, onClick = { weightUnit = "g"; unitExpanded = false })
-                        DropdownMenuItem(text = { Text("kg") }, onClick = { weightUnit = "kg"; unitExpanded = false })
+                ExposedDropdownMenu(
+                    expanded = expanded,
+                    onDismissRequest = { expanded = false }
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("Unassigned") },
+                        onClick = {
+                            payloadId = null
+                            expanded = false
+                        }
+                    )
+                    payloadLocations.forEach { location ->
+                        DropdownMenuItem(
+                            text = { Text(location.name) },
+                            onClick = {
+                                payloadId = location.id
+                                expanded = false
+                            }
+                        )
                     }
                 }
             }
@@ -245,12 +287,9 @@ fun EditEntryForm(
             Button(
                 onClick = {
                     val qtyInt = qty.toIntOrNull() ?: 1
-                    val weightGrams = try {
-                        val value = weightInput.toDouble()
-                        if (weightUnit == "kg") (value * 1000).toInt() else value.toInt()
-                    } catch (e: Exception) { entry.weightGrams }
+                    val weightGrams = convertToGrams(weightInput, weightUnit)
                     
-                    onSave(name, qtyInt, notes, type, imagePath, colorHex, weightGrams)
+                    onSave(name, qtyInt, notes, type, imagePath, colorHex, weightGrams, payloadId)
                 },
                 modifier = Modifier.fillMaxWidth()
             ) {

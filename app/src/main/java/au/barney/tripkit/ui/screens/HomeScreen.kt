@@ -65,7 +65,8 @@ fun HomeScreen(
     onOpenMasterInventory: () -> Unit,
     onViewPdf: (String) -> Unit,
     onCreateTemplate: () -> Unit,
-    onEditTemplate: (Int) -> Unit
+    onEditTemplate: (Int) -> Unit,
+    onManagePayloads: () -> Unit = {}
 ) {
     val lists by viewModel.lists.collectAsState()
     val progress by viewModel.packingProgress.collectAsState()
@@ -220,6 +221,8 @@ fun HomeScreen(
                                 }
                             }
                         }
+
+                        HomeIconButton(Icons.Default.Scale, "Manage Payloads", onManagePayloads)
 
                         HomeIconButton(Icons.Default.Input, "Import Trip") {
                             importLauncher.launch(arrayOf("application/json"))
@@ -603,7 +606,7 @@ fun HomeScreen(
             title = { Text("Duplicate List") },
             text = {
                 Column {
-                    Text("Create a copy of '${listToDuplicate?.name}'?")
+                    Text("Create a copy of \u0027${listToDuplicate?.name}\u0027?")
                     Spacer(Modifier.height(16.dp))
                     OutlinedTextField(
                         value = duplicateListName,
@@ -637,7 +640,7 @@ fun HomeScreen(
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
             title = { Text("Delete List?") },
-            text = { Text("This will permanently remove '${listToDelete?.name}' and all its items. This cannot be undone.") },
+            text = { Text("This will permanently remove \u0027${listToDelete?.name}\u0027 and all its items. This cannot be undone.") },
             confirmButton = {
                 Button(
                     onClick = {

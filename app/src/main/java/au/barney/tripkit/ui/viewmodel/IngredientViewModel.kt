@@ -79,35 +79,23 @@ class IngredientViewModel(
         }
     }
 
-    fun addIngredient(name: String) {
+    fun addIngredient(name: String, quantity: String = "1", notes: String? = null) {
         val groupId = currentGroupId
         if (groupId == -1) return
 
         viewModelScope.launch {
             try {
-                repository.addIngredient(groupId, name)
+                repository.addIngredient(groupId, name, quantity, notes)
             } catch (e: Exception) {
                 _error.value = e.message ?: "Unknown error"
             }
         }
     }
 
-    fun updateIngredient(
-        ingredientId: Int,
-        name: String,
-        quantity: Int = 1,
-        notes: String? = null,
-        isChecked: Int = 0
-    ) {
+    fun updateIngredient(ingredient: Ingredient) {
         viewModelScope.launch {
             try {
-                repository.updateIngredient(
-                    ingredientId,
-                    name,
-                    quantity,
-                    notes,
-                    isChecked
-                )
+                repository.updateIngredient(ingredient)
             } catch (e: Exception) {
                 _error.value = e.message ?: "Unknown error"
             }

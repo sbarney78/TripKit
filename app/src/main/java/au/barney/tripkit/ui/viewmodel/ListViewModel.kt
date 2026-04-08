@@ -2,10 +2,8 @@ package au.barney.tripkit.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import au.barney.tripkit.data.model.ExtraWeightProfile
-import au.barney.tripkit.data.model.ListItem
+import au.barney.tripkit.data.model.*
 import au.barney.tripkit.data.repository.TripKitRepository
-import au.barney.tripkit.data.repository.WeightDetails
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -31,9 +29,17 @@ class ListViewModel(
     private val _extraWeightProfiles = MutableStateFlow<List<ExtraWeightProfile>>(emptyList())
     val extraWeightProfiles: StateFlow<List<ExtraWeightProfile>> = _extraWeightProfiles
 
+    private val _payloadLocations = MutableStateFlow<List<PayloadLocation>>(emptyList())
+    val payloadLocations: StateFlow<List<PayloadLocation>> = _payloadLocations
+
+    private val _extraPayloadProfiles = MutableStateFlow<List<ExtraPayloadProfile>>(emptyList())
+    val extraPayloadProfiles: StateFlow<List<ExtraPayloadProfile>> = _extraPayloadProfiles
+
     init {
         loadLists()
         loadExtraWeightProfiles()
+        loadPayloadLocations()
+        loadExtraPayloadProfiles()
     }
 
     fun loadLists() {
@@ -137,6 +143,74 @@ class ListViewModel(
     fun deleteExtraWeightProfile(id: Int) {
         viewModelScope.launch {
             repository.deleteExtraWeightProfile(id)
+        }
+    }
+
+    // --- PAYLOAD LOCATIONS ---
+
+    fun loadPayloadLocations() {
+        viewModelScope.launch {
+            repository.getPayloadLocations().collect { locations ->
+                _payloadLocations.value = locations
+            }
+        }
+    }
+
+    fun addPayloadLocation(name: String, limitGrams: Int?, category: String) {
+        viewModelScope.launch {
+            repository.addPayloadLocation(name, limitGrams, category)
+        }
+    }
+
+    fun updatePayloadLocation(location: PayloadLocation) {
+        viewModelScope.launch {
+            repository.updatePayloadLocation(location)
+        }
+    }
+
+    fun deletePayloadLocation(id: Int) {
+        viewModelScope.launch {
+            repository.deletePayloadLocation(id)
+        }
+    }
+
+    // --- EXTRA PAYLOAD PROFILES ---
+
+    fun loadExtraPayloadProfiles() {
+        viewModelScope.launch {
+            repository.getExtraPayloadProfiles().collect { profiles ->
+                _extraPayloadProfiles.value = profiles
+            }
+        }
+    }
+
+    fun addExtraPayloadProfile(name: String, weightGrams: Int, category: String) {
+        viewModelScope.launch {
+            repository.addExtraPayloadProfile(name, weightGrams, category)
+        }
+    }
+
+    fun updateExtraPayloadProfile(profile: ExtraPayloadProfile) {
+        viewModelScope.launch {
+            repository.updateExtraPayloadProfile(profile)
+        }
+    }
+
+    fun deleteExtraPayloadProfile(id: Int) {
+        viewModelScope.launch {
+            repository.deleteExtraPayloadProfile(id)
+        }
+    }
+
+    // --- LIST EXTRA PAYLOADS ---
+
+    fun getActiveExtraPayloads(listId: Int): Flow<List<ListExtraPayload>> {
+        return repository.getListExtraPayloads(listId)
+    }
+
+    fun toggleExtraPayloadForList(listId: Int, profileId: Int, active: Boolean) {
+        viewModelScope.launch {
+            repository.toggleListExtraPayload(listId, profileId, active)
         }
     }
 }

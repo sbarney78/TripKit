@@ -24,6 +24,9 @@ import androidx.compose.ui.unit.dp
 import au.barney.tripkit.data.model.MasterSubSubItem
 import au.barney.tripkit.ui.viewmodel.MasterItemViewModel
 import au.barney.tripkit.ui.components.DraggableFAB
+import au.barney.tripkit.ui.components.WeightInput
+import au.barney.tripkit.ui.components.convertToGrams
+import au.barney.tripkit.ui.components.formatWeightForInput
 import au.barney.tripkit.util.WeightUtils
 import coil.compose.AsyncImage
 
@@ -68,26 +71,14 @@ fun MasterSubSubItemsScreen(
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(value = itemName, onValueChange = { itemName = it }, label = { Text("Item Name") }, modifier = Modifier.fillMaxWidth())
                     
-                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                        OutlinedTextField(
-                            value = weightInput,
-                            onValueChange = { weightInput = it },
-                            label = { Text("Weight") },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                            modifier = Modifier.weight(1f)
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        var unitExpanded by remember { mutableStateOf(false) }
-                        Box {
-                            TextButton(onClick = { unitExpanded = true }) {
-                                Text(weightUnit)
-                            }
-                            DropdownMenu(expanded = unitExpanded, onDismissRequest = { unitExpanded = false }) {
-                                DropdownMenuItem(text = { Text("g") }, onClick = { weightUnit = "g"; unitExpanded = false })
-                                DropdownMenuItem(text = { Text("kg") }, onClick = { weightUnit = "kg"; unitExpanded = false })
-                            }
-                        }
-                    }
+                    WeightInput(
+                        weightInput = weightInput,
+                        onWeightInputChange = { weightInput = it },
+                        weightUnit = weightUnit,
+                        onWeightUnitChange = { weightUnit = it },
+                        label = "Weight",
+                        modifier = Modifier.fillMaxWidth()
+                    )
 
                     OutlinedTextField(value = itemQty, onValueChange = { itemQty = it }, label = { Text("Default Quantity") }, modifier = Modifier.fillMaxWidth())
                     ImagePicker(currentImagePath = imagePath, onImageSelected = { imagePath = it })
@@ -96,10 +87,7 @@ fun MasterSubSubItemsScreen(
             confirmButton = {
                 Button(onClick = {
                     if (itemName.isNotBlank()) {
-                        val weightGrams = try {
-                            val value = weightInput.toDouble()
-                            if (weightUnit == "kg") (value * 1000).toInt() else value.toInt()
-                        } catch (e: Exception) { 0 }
+                        val weightGrams = convertToGrams(weightInput, weightUnit)
 
                         viewModel.addMasterSubSubItem(masterSubItemId, itemName, itemQty.toIntOrNull() ?: 1, isContainer, imagePath, weightGrams)
                         itemName = ""; itemQty = "1"; imagePath = null; weightInput = ""; weightUnit = "g"
@@ -122,10 +110,13 @@ fun MasterSubSubItemsScreen(
         val editIsContainer = editItem!!.is_container
         var editImagePath by remember { mutableStateOf(editItem!!.image_path) }
         var editWeightInput by remember { 
-            val grams = editItem!!.weightGrams
-            mutableStateOf(if (grams >= 1000) (grams / 1000.0).toString() else grams.toString())
+            val (input, _) = formatWeightForInput(editItem!!.weightGrams)
+            mutableStateOf(input)
         }
-        var editWeightUnit by remember { mutableStateOf(if (editItem!!.weightGrams >= 1000) "kg" else "g") }
+        var editWeightUnit by remember {
+            val (_, unit) = formatWeightForInput(editItem!!.weightGrams)
+            mutableStateOf(unit)
+        }
 
         AlertDialog(
             onDismissRequest = { showEditDialog = false },
@@ -134,26 +125,14 @@ fun MasterSubSubItemsScreen(
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(value = editName, onValueChange = { editName = it }, label = { Text("Item Name") }, modifier = Modifier.fillMaxWidth())
                     
-                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                        OutlinedTextField(
-                            value = editWeightInput,
-                            onValueChange = { editWeightInput = it },
-                            label = { Text("Weight") },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                            modifier = Modifier.weight(1f)
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        var unitExpanded by remember { mutableStateOf(false) }
-                        Box {
-                            TextButton(onClick = { unitExpanded = true }) {
-                                Text(editWeightUnit)
-                            }
-                            DropdownMenu(expanded = unitExpanded, onDismissRequest = { unitExpanded = false }) {
-                                DropdownMenuItem(text = { Text("g") }, onClick = { editWeightUnit = "g"; unitExpanded = false })
-                                DropdownMenuItem(text = { Text("kg") }, onClick = { editWeightUnit = "kg"; unitExpanded = false })
-                            }
-                        }
-                    }
+                    WeightInput(
+                        weightInput = editWeightInput,
+                        onWeightInputChange = { editWeightInput = it },
+                        weightUnit = editWeightUnit,
+                        onWeightUnitChange = { editWeightUnit = it },
+                        label = "Weight",
+                        modifier = Modifier.fillMaxWidth()
+                    )
 
                     if (!editIsContainer) {
                         OutlinedTextField(value = editQty, onValueChange = { editQty = it }, label = { Text("Default Quantity") }, modifier = Modifier.fillMaxWidth())
@@ -164,10 +143,7 @@ fun MasterSubSubItemsScreen(
             confirmButton = {
                 Button(onClick = {
                     if (editName.isNotBlank()) {
-                        val weightGrams = try {
-                            val value = editWeightInput.toDouble()
-                            if (editWeightUnit == "kg") (value * 1000).toInt() else value.toInt()
-                        } catch (e: Exception) { editItem!!.weightGrams }
+                        val weightGrams = convertToGrams(editWeightInput, editWeightUnit)
 
                         viewModel.updateMasterSubSubItem(editItem!!.copy(
                             name = editName, 

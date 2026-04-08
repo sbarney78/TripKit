@@ -16,9 +16,15 @@ import java.util.UUID
             parentColumns = ["entry_id"],
             childColumns = ["entry_id"],
             onDelete = ForeignKey.CASCADE
+        ),
+        ForeignKey(
+            entity = PayloadLocation::class,
+            parentColumns = ["id"],
+            childColumns = ["payloadLocationId"],
+            onDelete = ForeignKey.SET_NULL
         )
     ],
-    indices = [Index(value = ["entry_id"])]
+    indices = [Index(value = ["entry_id"]), Index("payloadLocationId")]
 )
 data class Item(
     @PrimaryKey(autoGenerate = true) val item_id: Int = 0,
@@ -37,7 +43,9 @@ data class Item(
     @ColumnInfo(defaultValue = "#800000") // Default Maroon
     val color: String = "#800000",
     @ColumnInfo(defaultValue = "0")
-    val weightGrams: Int = 0
+    val weightGrams: Int = 0,
+    @ColumnInfo(defaultValue = "NULL")
+    val payloadLocationId: Int? = null
 )
 
 data class ItemWithCount(

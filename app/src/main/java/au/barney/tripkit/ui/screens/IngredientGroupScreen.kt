@@ -44,7 +44,7 @@ fun IngredientGroupScreen(
     var newGroupName by remember { mutableStateOf("") }
 
     var showEditDialog by remember { mutableStateOf(false) }
-    var editGroupId by remember { mutableStateOf(0) }
+    var editGroup: IngredientGroup? by remember { mutableStateOf(null) }
     var editGroupName by remember { mutableStateOf("") }
 
     var showDeleteDialog by remember { mutableStateOf(false) }
@@ -89,7 +89,7 @@ fun IngredientGroupScreen(
         )
     }
 
-    if (showEditDialog) {
+    if (showEditDialog && editGroup != null) {
         AlertDialog(
             onDismissRequest = { showEditDialog = false },
             title = { Text("Edit Group") },
@@ -106,7 +106,7 @@ fun IngredientGroupScreen(
                 Button(onClick = {
                     val trimmed = editGroupName.trim()
                     if (trimmed.isNotEmpty()) {
-                        viewModel.updateGroup(editGroupId, trimmed)
+                        viewModel.updateGroup(editGroup!!.copy(group_name = trimmed))
                         showEditDialog = false
                     }
                 }) { Text("Save") }
@@ -207,7 +207,7 @@ fun IngredientGroupScreen(
                             group = group,
                             onOpen = { onOpenGroup(group.id) },
                             onEdit = {
-                                editGroupId = group.id
+                                editGroup = group
                                 editGroupName = group.group_name
                                 showEditDialog = true
                             },

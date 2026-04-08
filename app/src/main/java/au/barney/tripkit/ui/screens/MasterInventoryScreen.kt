@@ -11,7 +11,6 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
@@ -25,11 +24,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import au.barney.tripkit.data.model.MasterItem
 import au.barney.tripkit.ui.viewmodel.MasterItemViewModel
 import au.barney.tripkit.ui.components.DraggableFAB
+import au.barney.tripkit.ui.components.WeightInput
+import au.barney.tripkit.ui.components.convertToGrams
+import au.barney.tripkit.ui.components.formatWeightForInput
 import au.barney.tripkit.util.WeightUtils
 import coil.compose.AsyncImage
 
@@ -79,26 +80,14 @@ fun MasterInventoryScreen(
                         modifier = Modifier.fillMaxWidth()
                     )
                     
-                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                        OutlinedTextField(
-                            value = weightInput,
-                            onValueChange = { weightInput = it },
-                            label = { Text("Weight") },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                            modifier = Modifier.weight(1f)
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        var unitExpanded by remember { mutableStateOf(false) }
-                        Box {
-                            TextButton(onClick = { unitExpanded = true }) {
-                                Text(weightUnit)
-                            }
-                            DropdownMenu(expanded = unitExpanded, onDismissRequest = { unitExpanded = false }) {
-                                DropdownMenuItem(text = { Text("g") }, onClick = { weightUnit = "g"; unitExpanded = false })
-                                DropdownMenuItem(text = { Text("kg") }, onClick = { weightUnit = "kg"; unitExpanded = false })
-                            }
-                        }
-                    }
+                    WeightInput(
+                        weightInput = weightInput,
+                        onWeightInputChange = { weightInput = it },
+                        weightUnit = weightUnit,
+                        onWeightUnitChange = { weightUnit = it },
+                        label = "Weight",
+                        modifier = Modifier.fillMaxWidth()
+                    )
 
                     Row(
                         verticalAlignment = Alignment.CenterVertically
@@ -139,10 +128,7 @@ fun MasterInventoryScreen(
             confirmButton = {
                 Button(onClick = {
                     if (newItemName.isNotBlank()) {
-                        val weightGrams = try {
-                            val value = weightInput.toDouble()
-                            if (weightUnit == "kg") (value * 1000).toInt() else value.toInt()
-                        } catch (e: Exception) { 0 }
+                        val weightGrams = convertToGrams(weightInput, weightUnit)
                         
                         viewModel.addMasterItem(newItemName, isContainer, imagePath, itemColor, weightGrams)
                         newItemName = ""
@@ -174,10 +160,13 @@ fun MasterInventoryScreen(
         var editImagePath by remember { mutableStateOf(itemToEdit!!.image_path) }
         var editColor by remember { mutableStateOf(itemToEdit!!.color) }
         var editWeightInput by remember { 
-            val grams = itemToEdit!!.weightGrams
-            mutableStateOf(if (grams >= 1000) (grams / 1000.0).toString() else grams.toString())
+            val (input, _) = formatWeightForInput(itemToEdit!!.weightGrams)
+            mutableStateOf(input)
         }
-        var editWeightUnit by remember { mutableStateOf(if (itemToEdit!!.weightGrams >= 1000) "kg" else "g") }
+        var editWeightUnit by remember {
+            val (_, unit) = formatWeightForInput(itemToEdit!!.weightGrams)
+            mutableStateOf(unit)
+        }
 
         AlertDialog(
             onDismissRequest = { showEditDialog = false },
@@ -191,26 +180,14 @@ fun MasterInventoryScreen(
                         modifier = Modifier.fillMaxWidth()
                     )
 
-                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                        OutlinedTextField(
-                            value = editWeightInput,
-                            onValueChange = { editWeightInput = it },
-                            label = { Text("Weight") },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                            modifier = Modifier.weight(1f)
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        var unitExpanded by remember { mutableStateOf(false) }
-                        Box {
-                            TextButton(onClick = { unitExpanded = true }) {
-                                Text(editWeightUnit)
-                            }
-                            DropdownMenu(expanded = unitExpanded, onDismissRequest = { unitExpanded = false }) {
-                                DropdownMenuItem(text = { Text("g") }, onClick = { editWeightUnit = "g"; unitExpanded = false })
-                                DropdownMenuItem(text = { Text("kg") }, onClick = { editWeightUnit = "kg"; unitExpanded = false })
-                            }
-                        }
-                    }
+                    WeightInput(
+                        weightInput = editWeightInput,
+                        onWeightInputChange = { editWeightInput = it },
+                        weightUnit = editWeightUnit,
+                        onWeightUnitChange = { editWeightUnit = it },
+                        label = "Weight",
+                        modifier = Modifier.fillMaxWidth()
+                    )
 
                     Row(
                         verticalAlignment = Alignment.CenterVertically
@@ -251,10 +228,7 @@ fun MasterInventoryScreen(
             confirmButton = {
                 Button(onClick = {
                     if (editName.isNotBlank()) {
-                        val weightGrams = try {
-                            val value = editWeightInput.toDouble()
-                            if (editWeightUnit == "kg") (value * 1000).toInt() else value.toInt()
-                        } catch (e: Exception) { itemToEdit!!.weightGrams }
+                        val weightGrams = convertToGrams(editWeightInput, editWeightUnit)
 
                         viewModel.updateMasterItem(itemToEdit!!.copy(
                             name = editName, 
@@ -281,11 +255,6 @@ fun MasterInventoryScreen(
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MaterialTheme.colorScheme.onPrimaryContainer)
-                    }
-                },
-                actions = {
-                    IconButton(onClick = { viewModel.syncPictures() }) {
-                        Icon(Icons.Default.Sync, contentDescription = "Sync Pictures", tint = MaterialTheme.colorScheme.onPrimaryContainer)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(

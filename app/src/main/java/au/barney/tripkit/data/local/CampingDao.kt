@@ -472,4 +472,43 @@ interface TripKitDao {
 
     @Query("DELETE FROM extra_weight_profiles WHERE id = :id")
     suspend fun deleteExtraWeightProfile(id: Int)
+
+    // ------------------ PAYLOAD LOCATIONS ------------------
+    @Query("SELECT * FROM payload_locations ORDER BY category ASC, name ASC")
+    fun getPayloadLocations(): Flow<List<PayloadLocation>>
+
+    @Query("SELECT * FROM payload_locations WHERE id = :id")
+    suspend fun getPayloadLocation(id: Int): PayloadLocation?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertPayloadLocation(location: PayloadLocation): Long
+
+    @Update
+    suspend fun updatePayloadLocation(location: PayloadLocation)
+
+    @Query("DELETE FROM payload_locations WHERE id = :id")
+    suspend fun deletePayloadLocation(id: Int)
+
+    // ------------------ EXTRA PAYLOAD PROFILES ------------------
+    @Query("SELECT * FROM extra_payload_profiles ORDER BY category ASC, name ASC")
+    fun getExtraPayloadProfiles(): Flow<List<ExtraPayloadProfile>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertExtraPayloadProfile(profile: ExtraPayloadProfile)
+
+    @Update
+    suspend fun updateExtraPayloadProfile(profile: ExtraPayloadProfile)
+
+    @Query("DELETE FROM extra_payload_profiles WHERE id = :id")
+    suspend fun deleteExtraPayloadProfile(id: Int)
+
+    // ------------------ LIST EXTRA PAYLOADS ------------------
+    @Query("SELECT * FROM list_extra_payloads WHERE listId = :listId")
+    fun getListExtraPayloads(listId: Int): Flow<List<ListExtraPayload>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertListExtraPayload(link: ListExtraPayload)
+
+    @Query("DELETE FROM list_extra_payloads WHERE listId = :listId AND payloadProfileId = :profileId")
+    suspend fun deleteListExtraPayload(listId: Int, profileId: Int)
 }

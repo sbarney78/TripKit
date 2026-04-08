@@ -70,10 +70,10 @@ class TemplateViewModel(private val repository: TripKitRepository) : ViewModel()
         }
     }
 
-    fun addFromMaster(templateId: Int, masterItemId: Int) {
+    fun addFromMaster(templateId: Int, name: String, isContainer: Boolean, weightGrams: Int = 0, color: String = "#800000") {
         viewModelScope.launch {
             try {
-                repository.addTemplateEntry(templateId, masterItemId)
+                repository.addTemplateEntry(templateId, name, isContainer, weightGrams, color)
             } catch (e: Exception) {
                 _error.value = e.message
             }

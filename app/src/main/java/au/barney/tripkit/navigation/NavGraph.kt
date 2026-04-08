@@ -66,7 +66,8 @@ fun AppNavGraph(modifier: Modifier = Modifier) {
                 onOpenMasterInventory = { navController.navigate("master_inventory") },
                 onViewPdf = { path -> navController.navigate("pdf_viewer/${Uri.encode(path)}") },
                 onCreateTemplate = { navController.navigate("create_template") },
-                onEditTemplate = { id -> navController.navigate("edit_template/$id") }
+                onEditTemplate = { id -> navController.navigate("edit_template/$id") },
+                onManagePayloads = { navController.navigate("manage_payloads") }
             )
         }
 
@@ -169,6 +170,14 @@ fun AppNavGraph(modifier: Modifier = Modifier) {
                 listId = listId,
                 listName = listName,
                 viewModel = listViewModel,
+                onManagePayloads = { navController.navigate("manage_payloads") },
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable("manage_payloads") {
+            ManagePayloadsScreen(
+                viewModel = listViewModel,
                 onBack = { navController.popBackStack() }
             )
         }
@@ -181,6 +190,7 @@ fun AppNavGraph(modifier: Modifier = Modifier) {
             AddEntryScreen(
                 listId = listId,
                 viewModel = entryViewModel,
+                listViewModel = listViewModel,
                 masterViewModel = masterItemViewModel,
                 onDone = { navController.popBackStack() }
             )
@@ -199,6 +209,7 @@ fun AppNavGraph(modifier: Modifier = Modifier) {
                 listId = listId,
                 entryId = entryId,
                 viewModel = entryViewModel,
+                listViewModel = listViewModel,
                 onBack = { navController.popBackStack() }
             )
         }
@@ -241,6 +252,7 @@ fun AppNavGraph(modifier: Modifier = Modifier) {
             AddItemScreen(
                 entryId = entryId,
                 viewModel = itemViewModel,
+                listViewModel = listViewModel,
                 masterViewModel = masterItemViewModel,
                 onDone = { navController.popBackStack() }
             )
@@ -254,6 +266,7 @@ fun AppNavGraph(modifier: Modifier = Modifier) {
             EditItemScreen(
                 itemId = itemId,
                 viewModel = itemViewModel,
+                listViewModel = listViewModel,
                 onBack = { navController.popBackStack() }
             )
         }

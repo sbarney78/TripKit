@@ -38,7 +38,7 @@ fun IngredientScreen(
 
     // Edit dialog
     var showEditDialog by remember { mutableStateOf(false) }
-    var editIngredientId by remember { mutableStateOf(0) }
+    var editIngredient: Ingredient? by remember { mutableStateOf(null) }
     var editIngredientName by remember { mutableStateOf("") }
 
     // Delete dialog
@@ -89,7 +89,7 @@ fun IngredientScreen(
     }
 
     // ---------------- EDIT INGREDIENT DIALOG ----------------
-    if (showEditDialog) {
+    if (showEditDialog && editIngredient != null) {
         AlertDialog(
             onDismissRequest = { showEditDialog = false },
             title = { Text("Edit Ingredient") },
@@ -106,10 +106,7 @@ fun IngredientScreen(
                 Button(onClick = {
                     val trimmed = editIngredientName.trim()
                     if (trimmed.isNotEmpty()) {
-                        viewModel.updateIngredient(
-                            ingredientId = editIngredientId,
-                            name = trimmed
-                        )
+                        viewModel.updateIngredient(editIngredient!!.copy(ingredient_name = trimmed))
                         showEditDialog = false
                     }
                 }) { Text("Save") }
@@ -198,7 +195,7 @@ fun IngredientScreen(
                                 viewModel.toggleIngredient(ingredient.id, checked)
                             },
                             onEdit = {
-                                editIngredientId = ingredient.id
+                                editIngredient = ingredient
                                 editIngredientName = ingredient.ingredient_name
                                 showEditDialog = true
                             },
