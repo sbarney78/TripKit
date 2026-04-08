@@ -9,9 +9,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -24,6 +22,11 @@ import au.barney.tripkit.data.model.TemplateItem
 import au.barney.tripkit.data.model.TemplateSubItem
 import au.barney.tripkit.ui.viewmodel.MasterItemViewModel
 import au.barney.tripkit.ui.viewmodel.TemplateViewModel
+import au.barney.tripkit.ui.components.DraggableFAB
+import coil.compose.AsyncImage
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -39,6 +42,7 @@ fun EditTemplateScreen(
     val masterItems by masterViewModel.masterItems.collectAsState()
 
     var showAddFromMasterDialog by remember { mutableStateOf(false) }
+    val selectedMasterItemIds = remember { mutableStateListOf<Int>() }
 
     LaunchedEffect(templateId) {
         templateViewModel.loadTemplateEntries(templateId)
@@ -57,15 +61,28 @@ fun EditTemplateScreen(
                 title = { Text("Edit Template: ${template.name}", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack, 
+                            contentDescription = "Back",
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
                     }
                 },
-                actions = {
-                    IconButton(onClick = { showAddFromMasterDialog = true }) {
-                        Icon(Icons.Default.Add, contentDescription = "Add from Master")
-                    }
-                }
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    actionIconContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    navigationIconContentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                )
             )
+        },
+        floatingActionButton = {
+            DraggableFAB(onClick = { 
+                selectedMasterItemIds.clear()
+                showAddFromMasterDialog = true 
+            }) {
+                Text("+", style = MaterialTheme.typography.headlineSmall)
+            }
         }
     ) { padding ->
         Column(
@@ -107,30 +124,54 @@ fun EditTemplateScreen(
                 } else {
                     LazyColumn(modifier = Modifier.heightIn(max = 400.dp)) {
                         items(availableItems) { item ->
-                            DropdownMenuItem(
-                                text = { Text(item.name) },
-                                onClick = {
-                                    templateViewModel.addFromMaster(
-                                        templateId = templateId, 
-                                        name = item.name, 
-                                        isContainer = item.is_container, 
-                                        weightGrams = item.weightGrams, 
-                                        color = item.color
-                                    )
-                                    showAddFromMasterDialog = false
-                                },
-                                leadingIcon = {
-                                    if (item.is_container) {
-                                        Box(modifier = Modifier.size(12.dp).background(Color(android.graphics.Color.parseColor(item.color))))
+                            val isSelected = selectedMasterItemIds.contains(item.id)
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        if (isSelected) selectedMasterItemIds.remove(item.id)
+                                        else selectedMasterItemIds.add(item.id)
                                     }
+                                    .padding(vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Checkbox(
+                                    checked = isSelected,
+                                    onCheckedChange = {
+                                        if (it) selectedMasterItemIds.add(item.id)
+                                        else selectedMasterItemIds.remove(item.id)
+                                    }
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                if (item.image_path != null) {
+                                    AsyncImage(
+                                        model = item.image_path,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(40.dp).clip(RoundedCornerShape(4.dp)),
+                                        contentScale = ContentScale.Crop
+                                    )
+                                    Spacer(Modifier.width(8.dp))
                                 }
-                            )
+                                Text(item.name, modifier = Modifier.weight(1f))
+                                if (item.is_container) {
+                                    Box(modifier = Modifier.size(12.dp).background(Color(android.graphics.Color.parseColor(item.color))))
+                                }
+                            }
                         }
                     }
                 }
             },
             confirmButton = {
-                TextButton(onClick = { showAddFromMasterDialog = false }) { Text("Close") }
+                Button(
+                    onClick = {
+                        templateViewModel.addMultipleFromMaster(templateId, selectedMasterItemIds.toList())
+                        showAddFromMasterDialog = false
+                    },
+                    enabled = selectedMasterItemIds.isNotEmpty()
+                ) { Text("Add Selected") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showAddFromMasterDialog = false }) { Text("Cancel") }
             }
         )
     }
@@ -161,11 +202,16 @@ fun TemplateEntryRow(
                     modifier = Modifier.padding(12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Checkbox(
-                        checked = entry.is_checked == 1,
-                        onCheckedChange = { viewModel.toggleTemplateEntry(entry.id, it) }
-                    )
-                    
+                    if (entry.image_path != null) {
+                        AsyncImage(
+                            model = entry.image_path,
+                            contentDescription = null,
+                            modifier = Modifier.size(40.dp).clip(RoundedCornerShape(4.dp)),
+                            contentScale = ContentScale.Crop
+                        )
+                        Spacer(Modifier.width(12.dp))
+                    }
+
                     if (entry.is_container) {
                         Box(
                             modifier = Modifier
@@ -242,11 +288,16 @@ fun TemplateItemRow(
                 ),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Checkbox(
-                checked = item.is_checked == 1,
-                onCheckedChange = { viewModel.toggleTemplateItem(item.id, it) }
-            )
-            
+            if (item.image_path != null) {
+                AsyncImage(
+                    model = item.image_path,
+                    contentDescription = null,
+                    modifier = Modifier.size(32.dp).clip(RoundedCornerShape(4.dp)),
+                    contentScale = ContentScale.Crop
+                )
+                Spacer(Modifier.width(8.dp))
+            }
+
             if (item.is_container) {
                 Box(
                     modifier = Modifier
@@ -317,10 +368,16 @@ fun TemplateSubItemRow(
             .padding(vertical = 2.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Checkbox(
-            checked = subItem.is_checked == 1,
-            onCheckedChange = { viewModel.toggleTemplateSubItem(subItem.id, it) }
-        )
+        if (subItem.image_path != null) {
+            AsyncImage(
+                model = subItem.image_path,
+                contentDescription = null,
+                modifier = Modifier.size(24.dp).clip(RoundedCornerShape(4.dp)),
+                contentScale = ContentScale.Crop
+            )
+            Spacer(Modifier.width(8.dp))
+        }
+
         Text(
             text = subItem.name,
             style = MaterialTheme.typography.bodySmall,

@@ -108,7 +108,7 @@ class TripKitRepository(private val dao: TripKitDao) {
 
     private suspend fun populateFromTemplate(listId: Int, templateId: Int) {
         val entries = dao.getTemplateEntriesSync(templateId)
-        entries.filter { it.is_checked == 1 }.forEach { tEntry ->
+        entries.forEach { tEntry ->
             val entryId = dao.insertEntry(
                 Entry(
                     entry_name = tEntry.name,
@@ -125,7 +125,7 @@ class TripKitRepository(private val dao: TripKitDao) {
 
             if (tEntry.is_container) {
                 val items = dao.getTemplateItemsSync(tEntry.id)
-                items.filter { it.is_checked == 1 }.forEach { tItem ->
+                items.forEach { tItem ->
                     val itemId = dao.insertItem(
                         Item(
                             entry_id = entryId,
@@ -142,7 +142,7 @@ class TripKitRepository(private val dao: TripKitDao) {
 
                     if (tItem.is_container) {
                         val subItems = dao.getTemplateSubItemsSync(tItem.id)
-                        subItems.filter { it.is_checked == 1 }.forEach { tSub ->
+                        subItems.forEach { tSub ->
                             dao.insertSubItem(
                                 SubItem(
                                     item_id = itemId,
@@ -639,7 +639,10 @@ class TripKitRepository(private val dao: TripKitDao) {
         dao.insertMasterItem(MasterItem(name = name, is_container = isContainer, weightGrams = weightGrams, image_path = imagePath, color = color))
     }
 
-    suspend fun updateMasterItem(item: MasterItem) = dao.updateMasterItem(item)
+    suspend fun updateMasterItem(item: MasterItem) {
+        dao.updateMasterItem(item)
+        syncAllPicturesFromMaster()
+    }
 
     suspend fun deleteMasterItem(id: Int) = dao.deleteMasterItem(id)
 
@@ -651,7 +654,10 @@ class TripKitRepository(private val dao: TripKitDao) {
         dao.insertMasterSubItem(MasterSubItem(master_item_id = masterItemId, name = name, is_container = isContainer, weightGrams = weightGrams, image_path = imagePath, color = color))
     }
 
-    suspend fun updateMasterSubItem(item: MasterSubItem) = dao.updateMasterSubItem(item)
+    suspend fun updateMasterSubItem(item: MasterSubItem) {
+        dao.updateMasterSubItem(item)
+        syncAllPicturesFromMaster()
+    }
 
     suspend fun deleteMasterSubItem(id: Int) = dao.deleteMasterSubItem(id)
 
@@ -661,7 +667,10 @@ class TripKitRepository(private val dao: TripKitDao) {
         dao.insertMasterSubSubItem(MasterSubSubItem(master_sub_item_id = subItemId, name = name, weightGrams = weightGrams, image_path = imagePath, color = color))
     }
 
-    suspend fun updateMasterSubSubItem(item: MasterSubSubItem) = dao.updateMasterSubSubItem(item)
+    suspend fun updateMasterSubSubItem(item: MasterSubSubItem) {
+        dao.updateMasterSubSubItem(item)
+        syncAllPicturesFromMaster()
+    }
 
     suspend fun deleteMasterSubSubItem(id: Int) = dao.deleteMasterSubSubItem(id)
 
@@ -730,7 +739,8 @@ class TripKitRepository(private val dao: TripKitDao) {
                 name = masterItem.name,
                 is_container = masterItem.is_container,
                 weightGrams = masterItem.weightGrams,
-                color = masterItem.color
+                color = masterItem.color,
+                image_path = masterItem.image_path
             )
         ).toInt()
 
@@ -743,7 +753,8 @@ class TripKitRepository(private val dao: TripKitDao) {
                         name = sub.name,
                         is_container = sub.is_container,
                         weightGrams = sub.weightGrams,
-                        color = sub.color
+                        color = sub.color,
+                        image_path = sub.image_path
                     )
                 ).toInt()
 
@@ -755,7 +766,8 @@ class TripKitRepository(private val dao: TripKitDao) {
                                 template_item_id = itemId,
                                 name = ss.name,
                                 weightGrams = ss.weightGrams,
-                                color = ss.color
+                                color = ss.color,
+                                image_path = ss.image_path
                             )
                         )
                     }
@@ -836,7 +848,8 @@ class TripKitRepository(private val dao: TripKitDao) {
                     name = masterItem.name,
                     is_container = masterItem.is_container,
                     weightGrams = masterItem.weightGrams,
-                    color = masterItem.color
+                    color = masterItem.color,
+                    image_path = masterItem.image_path
                 )
             ).toInt()
 
@@ -849,7 +862,8 @@ class TripKitRepository(private val dao: TripKitDao) {
                             name = sub.name,
                             is_container = sub.is_container,
                             weightGrams = sub.weightGrams,
-                            color = sub.color
+                            color = sub.color,
+                            image_path = sub.image_path
                         )
                     ).toInt()
 
@@ -861,7 +875,8 @@ class TripKitRepository(private val dao: TripKitDao) {
                                     template_item_id = itemId,
                                     name = ss.name,
                                     weightGrams = ss.weightGrams,
-                                    color = ss.color
+                                    color = ss.color,
+                                    image_path = ss.image_path
                                 )
                             )
                         }
@@ -918,6 +933,72 @@ class TripKitRepository(private val dao: TripKitDao) {
 
     suspend fun mergeTripData(data: FullTripData) {
         // Implement complex merge logic here if needed
+    }
+
+    suspend fun syncAllPicturesFromMaster() {
+        val masterEntries = dao.getMasterItemsSyncList()
+        val masterItems = dao.getAllMasterSubItemsSync()
+        val masterSubItems = dao.getAllMasterSubSubItemsSync()
+
+        // Sync Entries
+        dao.getAllEntriesSync().forEach { entry ->
+            masterEntries.find { it.name.equals(entry.entry_name, ignoreCase = true) }?.let { master ->
+                if (entry.image_path != master.image_path) {
+                    dao.updateEntry(entry.copy(image_path = master.image_path))
+                }
+            }
+        }
+
+        // Sync Items
+        dao.getAllItemsSync().forEach { item ->
+            masterItems.find { it.name.equals(item.item_name, ignoreCase = true) }?.let { master ->
+                if (item.image_path != master.image_path) {
+                    dao.updateItem(item.copy(image_path = master.image_path))
+                }
+            }
+        }
+
+        // Sync SubItems
+        dao.getAllSubItemsSync().forEach { subItem ->
+            masterSubItems.find { it.name.equals(subItem.name, ignoreCase = true) }?.let { master ->
+                if (subItem.image_path != master.image_path) {
+                    dao.updateSubItem(subItem.copy(image_path = master.image_path))
+                }
+            }
+        }
+
+        // Sync Templates
+        dao.getTemplatesSyncList().forEach { template ->
+            dao.getTemplateEntriesSyncList(template.id).forEach { tEntry ->
+                masterEntries.find { it.name.equals(tEntry.name, ignoreCase = true) }?.let { master ->
+                    if (tEntry.image_path != master.image_path) {
+                        dao.updateTemplateEntry(tEntry.copy(image_path = master.image_path))
+                    }
+                }
+                
+                dao.getTemplateItemsSync(tEntry.id).forEach { tItem ->
+                    masterItems.find { it.name.equals(tItem.name, ignoreCase = true) }?.let { master ->
+                        if (tItem.image_path != master.image_path) {
+                            dao.updateTemplateItem(tItem.copy(image_path = master.image_path))
+                        }
+                    }
+                    
+                    dao.getTemplateSubItemsSync(tItem.id).forEach { tSub ->
+                        masterSubItems.find { it.name.equals(tSub.name, ignoreCase = true) }?.let { master ->
+                            if (tSub.image_path != master.image_path) {
+                                dao.updateTemplateSubItem(tSub.copy(image_path = master.image_path))
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    suspend fun addMultipleFromMaster(templateId: Int, masterItemIds: List<Int>) {
+        masterItemIds.forEach { id ->
+            addTemplateEntry(templateId, id)
+        }
     }
 
     // ------------------ WEIGHT CALCULATIONS ------------------
