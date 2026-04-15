@@ -1,5 +1,13 @@
-This repository and all public TripKit branding, docker images, code, binaries, and everything else are for personal, private (non-public), non commercial use only. All TripKit branding is not licensed for reuse.
+Copyright (c) 2026 Steven
 
-Contact me if you would like to run a TripKit instance for public or commercial use.
+All rights reserved.
 
-Warning: There are portions of the software that may not work. I don't warranty the functionality here. You're in charge of making backups and making sure you don't lose data, especially when updating!
+This repository, including all TripKit branding, source code, binaries, Docker images, assets, and any other distributed materials, is provided strictly for personal, private, non‑public, and non‑commercial use only.
+
+No part of TripKit — including but not limited to the name, logo, branding, design elements, source code, or compiled binaries — may be copied, modified, redistributed, published, sublicensed, or used in any public or commercial context without prior written permission from the owner.
+
+TripKit branding is not licensed for reuse under any circumstances.
+
+If you wish to run a public, shared, or commercial instance of TripKit, you must contact the owner to request permission.
+
+This software is provided “as is” without warranty of any kind. Functionality may be incomplete or unstable. You are solely responsible for maintaining backups and preventing data loss, especially when updating or modifying the software.
