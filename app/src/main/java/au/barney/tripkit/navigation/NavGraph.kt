@@ -67,8 +67,13 @@ fun AppNavGraph(modifier: Modifier = Modifier) {
                 onViewPdf = { path -> navController.navigate("pdf_viewer/${Uri.encode(path)}") },
                 onCreateTemplate = { navController.navigate("create_template") },
                 onEditTemplate = { id -> navController.navigate("edit_template/$id") },
-                onManagePayloads = { navController.navigate("manage_payloads") }
+                onManagePayloads = { navController.navigate("manage_payloads") },
+                onAbout = { navController.navigate("about") }
             )
+        }
+
+        composable("about") {
+            AboutScreen(onBack = { navController.popBackStack() })
         }
 
         composable("master_inventory") {

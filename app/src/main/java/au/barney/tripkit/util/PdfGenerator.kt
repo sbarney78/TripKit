@@ -26,6 +26,14 @@ object PdfGenerator {
     private const val START_Y = 120f
     private const val MAX_Y = 800f
 
+    private fun formatWeight(grams: Int): String {
+        return if (grams >= 1000) {
+            String.format(Locale.getDefault(), "%.1fkg", grams / 1000f)
+        } else {
+            "${grams}g"
+        }
+    }
+
     private fun drawHeader(canvas: android.graphics.Canvas, title: String, listName: String) {
         val headerPaint = Paint().apply { color = MAROON; style = Paint.Style.FILL }
         val titlePaint = Paint().apply { 
@@ -229,7 +237,7 @@ object PdfGenerator {
     }
 
     fun generateFullTripPdf(context: Context, data: FullTripData): File? {
-        val listName = data.list.name
+        val listName = data.list?.name ?: "Unknown Trip"
         val pdfDocument = PdfDocument()
         val sectionPaint = Paint().apply { isFakeBoldText = true; textSize = 18f; color = MAROON; textAlign = Paint.Align.CENTER }
         val title = "Full Trip Plan"
@@ -248,140 +256,166 @@ object PdfGenerator {
         val durationPaint = Paint().apply { isFakeBoldText = true; textSize = 10f; color = Color.rgb(0, 100, 0) }
 
         // --- ITINERARY SECTION ---
-        canvas.drawText("--- ITINERARY ---", PAGE_WIDTH/2, y, sectionPaint); y += 35f
-        sectionStartY = y
-        
-        val sortedItinerary = data.itinerary.sortedWith { a, b ->
-            val d1 = try { sdfFullDate.parse(a.day) } catch (e: Exception) { null }
-            val d2 = try { sdfFullDate.parse(b.day) } catch (e: Exception) { null }
-            if (d1 != null && d2 != null) {
-                val comp = d1.compareTo(d2)
-                if (comp != 0) comp else {
-                    val t1 = try { sdfFullTime.parse(a.time) } catch (e: Exception) { null }
-                    val t2 = try { sdfFullTime.parse(b.time) } catch (e: Exception) { null }
-                    if (t1 != null && t2 != null) t1.compareTo(t2) else a.time.compareTo(b.time)
-                }
-            } else a.day.compareTo(b.day)
-        }
-
-        sortedItinerary.groupBy { it.day }.forEach { (day, activities) ->
-            val rDay = checkLayout(pdfDocument, myPage, y, column, title, listName, sectionStartY)
-            myPage = rDay.first; column = rDay.second; y = rDay.third; canvas = myPage.canvas
-            if (column == 1 && y == START_Y) sectionStartY = START_Y
-            x = if (column == 1) COL1_X else COL2_X
-            
-            canvas.drawText(day, x, y, Paint().apply { isFakeBoldText = true; textSize = 13f; color = MAROON }); y += 18f
-            activities.forEach { act ->
-                val r2 = checkLayout(pdfDocument, myPage, y, column, title, listName, sectionStartY)
-                myPage = r2.first; column = r2.second; y = r2.third; canvas = myPage.canvas
-                if (column == 1 && y == START_Y) sectionStartY = START_Y
-                x = if (column == 1) COL1_X else COL2_X
-
-                canvas.drawText(act.activity, x, y, activityPaint); y += 14f
-                val timeStr = "${formatShortTime(act.time)}${if (!act.departure_time.isNullOrBlank()) " -> " + formatShortTime(act.departure_time) else ""}"
-                canvas.drawText(timeStr, x, y, detailPaint); y += 12f
-
-                getDurationText(act)?.let {
-                    canvas.drawText(it, x, y, durationPaint); y += 12f
+        data.itinerary?.let { itinerary ->
+            if (itinerary.isNotEmpty()) {
+                canvas.drawText("--- ITINERARY ---", PAGE_WIDTH/2, y, sectionPaint); y += 35f
+                sectionStartY = y
+                
+                val sortedItinerary = itinerary.sortedWith { a, b ->
+                    val d1 = try { sdfFullDate.parse(a.day) } catch (e: Exception) { null }
+                    val d2 = try { sdfFullDate.parse(b.day) } catch (e: Exception) { null }
+                    if (d1 != null && d2 != null) {
+                        val comp = d1.compareTo(d2)
+                        if (comp != 0) comp else {
+                            val t1 = try { sdfFullTime.parse(a.time) } catch (e: Exception) { null }
+                            val t2 = try { sdfFullTime.parse(b.time) } catch (e: Exception) { null }
+                            if (t1 != null && t2 != null) t1.compareTo(t2) else a.time.compareTo(b.time)
+                        }
+                    } else a.day.compareTo(b.day)
                 }
 
-                if (!act.location.isNullOrBlank()) {
-                    y = drawMultilineText(canvas, act.location!!, x, y, detailPaint, COL_WIDTH, 12f)
+                sortedItinerary.groupBy { it.day }.forEach { (day, activities) ->
+                    val rDay = checkLayout(pdfDocument, myPage, y, column, title, listName, sectionStartY)
+                    myPage = rDay.first; column = rDay.second; y = rDay.third; canvas = myPage.canvas
+                    if (column == 1 && y == START_Y) sectionStartY = START_Y
+                    x = if (column == 1) COL1_X else COL2_X
+                    
+                    canvas.drawText(day, x, y, Paint().apply { isFakeBoldText = true; textSize = 13f; color = MAROON }); y += 18f
+                    activities.forEach { act ->
+                        val r2 = checkLayout(pdfDocument, myPage, y, column, title, listName, sectionStartY)
+                        myPage = r2.first; column = r2.second; y = r2.third; canvas = myPage.canvas
+                        if (column == 1 && y == START_Y) sectionStartY = START_Y
+                        x = if (column == 1) COL1_X else COL2_X
+
+                        canvas.drawText(act.activity, x, y, activityPaint); y += 14f
+                        val timeStr = "${formatShortTime(act.time)}${if (!act.departure_time.isNullOrBlank()) " -> " + formatShortTime(act.departure_time) else ""}"
+                        canvas.drawText(timeStr, x, y, detailPaint); y += 12f
+
+                        getDurationText(act)?.let {
+                            canvas.drawText(it, x, y, durationPaint); y += 12f
+                        }
+
+                        if (!act.location.isNullOrBlank()) {
+                            y = drawMultilineText(canvas, act.location!!, x, y, detailPaint, COL_WIDTH, 12f)
+                        }
+                        if (act.price != null && act.price!! > 0) {
+                            canvas.drawText("Price: AU$${String.format(Locale.getDefault(), "%.2f", act.price)}", x, y, detailPaint); y += 12f
+                        }
+                        y += 4f
+                    }
+                    y += 6f
                 }
-                if (act.price != null && act.price!! > 0) {
-                    canvas.drawText("Price: AU$${String.format(Locale.getDefault(), "%.2f", act.price)}", x, y, detailPaint); y += 12f
-                }
-                y += 4f
             }
-            y += 6f
         }
 
         // --- INVENTORY SECTION ---
-        pdfDocument.finishPage(myPage)
-        val resInv = startNewPage(pdfDocument, title, listName)
-        myPage = resInv.first; canvas = resInv.second; y = START_Y; column = 1; x = COL1_X
-        canvas.drawText("--- INVENTORY ---", PAGE_WIDTH/2, y, sectionPaint); y += 35f
-        sectionStartY = y
-        val itemsByEntry = data.allItems.groupBy { it.entry_id }
-        val subItemsByItemId = data.allSubItems.groupBy { it.item_id }
-        data.entries.forEach { entry ->
-            val r = checkLayout(pdfDocument, myPage, y, column, title, listName, sectionStartY)
-            myPage = r.first; column = r.second; y = r.third; canvas = myPage.canvas
-            if (column == 1 && y == START_Y) sectionStartY = START_Y
-            x = if (column == 1) COL1_X else COL2_X
-
-            val status = if (entry.is_checked == 1) "[X]" else "[ ]"
-            canvas.drawText("$status ${entry.entry_name} (x${entry.quantity})", x, y, Paint().apply { textSize = 11f }); y += 15f
-            if (entry.entry_type == "container") {
-                itemsByEntry[entry.entry_id]?.forEach { sub ->
-                    val rS = checkLayout(pdfDocument, myPage, y, column, title, listName, sectionStartY)
-                    myPage = rS.first; column = rS.second; y = rS.third; canvas = myPage.canvas
+        data.entries?.let { entries ->
+            if (entries.isNotEmpty()) {
+                if (y > START_Y) {
+                    pdfDocument.finishPage(myPage)
+                    val resInv = startNewPage(pdfDocument, title, listName)
+                    myPage = resInv.first; canvas = resInv.second; y = START_Y; column = 1; x = COL1_X
+                }
+                
+                canvas.drawText("--- INVENTORY ---", PAGE_WIDTH/2, y, sectionPaint); y += 35f
+                sectionStartY = y
+                val itemsByEntry = data.allItems?.groupBy { it.entry_id } ?: emptyMap()
+                val subItemsByItemId = data.allSubItems?.groupBy { it.item_id } ?: emptyMap()
+                entries.forEach { entry ->
+                    val r = checkLayout(pdfDocument, myPage, y, column, title, listName, sectionStartY)
+                    myPage = r.first; column = r.second; y = r.third; canvas = myPage.canvas
                     if (column == 1 && y == START_Y) sectionStartY = START_Y
                     x = if (column == 1) COL1_X else COL2_X
-                    val itemStatus = if (sub.is_checked == 1) "[X]" else "[ ]"
-                    canvas.drawText("  $itemStatus ${sub.item_name} (x${sub.quantity})", x, y, detailPaint); y += 14f
-                    
-                    if (sub.is_container) {
-                        subItemsByItemId[sub.item_id]?.forEach { subSub ->
-                            val rSS = checkLayout(pdfDocument, myPage, y, column, title, listName, sectionStartY)
-                            myPage = rSS.first; column = rSS.second; y = rSS.third; canvas = myPage.canvas
+
+                    val status = if (entry.is_checked == 1) "[X]" else "[ ]"
+                    val weightStr = if (entry.weightGrams > 0) " (${formatWeight(entry.weightGrams)})" else ""
+                    canvas.drawText("$status ${entry.entry_name} (x${entry.quantity})$weightStr", x, y, Paint().apply { textSize = 11f }); y += 15f
+                    if (entry.entry_type == "container") {
+                        itemsByEntry[entry.entry_id]?.forEach { sub ->
+                            val rS = checkLayout(pdfDocument, myPage, y, column, title, listName, sectionStartY)
+                            myPage = rS.first; column = rS.second; y = rS.third; canvas = myPage.canvas
                             if (column == 1 && y == START_Y) sectionStartY = START_Y
                             x = if (column == 1) COL1_X else COL2_X
-                            val ssStatus = if (subSub.is_checked == 1) "[X]" else "[ ]"
-                            canvas.drawText("      $ssStatus ${subSub.name} (x${subSub.quantity})", x, y, detailPaint); y += 13f
+                            val itemStatus = if (sub.is_checked == 1) "[X]" else "[ ]"
+                            val subWeightStr = if (sub.weightGrams > 0) " (${formatWeight(sub.weightGrams)})" else ""
+                            canvas.drawText("  $itemStatus ${sub.item_name} (x${sub.quantity})$subWeightStr", x, y, detailPaint); y += 14f
+                            
+                            if (sub.is_container) {
+                                subItemsByItemId[sub.item_id]?.forEach { subSub ->
+                                    val rSS = checkLayout(pdfDocument, myPage, y, column, title, listName, sectionStartY)
+                                    myPage = rSS.first; column = rSS.second; y = rSS.third; canvas = myPage.canvas
+                                    if (column == 1 && y == START_Y) sectionStartY = START_Y
+                                    x = if (column == 1) COL1_X else COL2_X
+                                    val ssStatus = if (subSub.is_checked == 1) "[X]" else "[ ]"
+                                    val ssWeightStr = if (subSub.weightGrams > 0) " (${formatWeight(subSub.weightGrams)})" else ""
+                                    canvas.drawText("      $ssStatus ${subSub.name} (x${subSub.quantity})$ssWeightStr", x, y, detailPaint); y += 13f
+                                }
+                            }
                         }
                     }
+                    y += 4f
                 }
             }
-            y += 4f
         }
 
         // --- MEAL PLAN SECTION ---
-        pdfDocument.finishPage(myPage)
-        val resMenu = startNewPage(pdfDocument, title, listName)
-        myPage = resMenu.first; canvas = resMenu.second; y = START_Y; column = 1; x = COL1_X
-        canvas.drawText("--- MEAL PLAN ---", PAGE_WIDTH/2, y, sectionPaint); y += 35f
-        sectionStartY = y
-        data.menu.groupBy { it.day }.forEach { (day, meals) ->
-            val rDay = checkLayout(pdfDocument, myPage, y, column, title, listName, sectionStartY)
-            myPage = rDay.first; column = rDay.second; y = rDay.third; canvas = myPage.canvas
-            if (column == 1 && y == START_Y) sectionStartY = START_Y
-            x = if (column == 1) COL1_X else COL2_X
+        data.menu?.let { menu ->
+            if (menu.isNotEmpty()) {
+                if (y > START_Y) {
+                    pdfDocument.finishPage(myPage)
+                    val resMenu = startNewPage(pdfDocument, title, listName)
+                    myPage = resMenu.first; canvas = resMenu.second; y = START_Y; column = 1; x = COL1_X
+                }
+                canvas.drawText("--- MEAL PLAN ---", PAGE_WIDTH/2, y, sectionPaint); y += 35f
+                sectionStartY = y
+                menu.groupBy { it.day }.forEach { (day, meals) ->
+                    val rDay = checkLayout(pdfDocument, myPage, y, column, title, listName, sectionStartY)
+                    myPage = rDay.first; column = rDay.second; y = rDay.third; canvas = myPage.canvas
+                    if (column == 1 && y == START_Y) sectionStartY = START_Y
+                    x = if (column == 1) COL1_X else COL2_X
 
-            canvas.drawText(day, x, y, Paint().apply { isFakeBoldText = true; textSize = 13f; color = MAROON }); y += 18f
-            meals.forEach { meal ->
-                val rM = checkLayout(pdfDocument, myPage, y, column, title, listName, sectionStartY)
-                myPage = rM.first; column = rM.second; y = rM.third; canvas = myPage.canvas
-                if (column == 1 && y == START_Y) sectionStartY = START_Y
-                x = if (column == 1) COL1_X else COL2_X
-                canvas.drawText(meal.meal_type, x, y, activityPaint); y += 14f
-                y = drawMultilineText(canvas, meal.description, x, y, detailPaint, COL_WIDTH, 12f)
-                y += 6f
+                    canvas.drawText(day, x, y, Paint().apply { isFakeBoldText = true; textSize = 13f; color = MAROON }); y += 18f
+                    meals.forEach { meal ->
+                        val rM = checkLayout(pdfDocument, myPage, y, column, title, listName, sectionStartY)
+                        myPage = rM.first; column = rM.second; y = rM.third; canvas = myPage.canvas
+                        if (column == 1 && y == START_Y) sectionStartY = START_Y
+                        x = if (column == 1) COL1_X else COL2_X
+                        canvas.drawText(meal.meal_type, x, y, activityPaint); y += 14f
+                        y = drawMultilineText(canvas, meal.description, x, y, detailPaint, COL_WIDTH, 12f)
+                        y += 6f
+                    }
+                    y += 10f
+                }
             }
-            y += 10f
         }
 
         // --- SHOPPING LIST SECTION ---
-        pdfDocument.finishPage(myPage)
-        val resIng = startNewPage(pdfDocument, title, listName)
-        myPage = resIng.first; canvas = resIng.second; y = START_Y; column = 1; x = COL1_X
-        canvas.drawText("--- SHOPPING LIST ---", PAGE_WIDTH/2, y, sectionPaint); y += 35f
-        sectionStartY = y
-        data.ingredientGroups.forEach { group ->
-            val rG = checkLayout(pdfDocument, myPage, y, column, title, listName, sectionStartY)
-            myPage = rG.first; column = rG.second; y = rG.third; canvas = myPage.canvas
-            if (column == 1 && y == START_Y) sectionStartY = START_Y
-            x = if (column == 1) COL1_X else COL2_X
+        data.ingredientGroups?.let { ingredientGroups ->
+            if (ingredientGroups.isNotEmpty()) {
+                if (y > START_Y) {
+                    pdfDocument.finishPage(myPage)
+                    val resIng = startNewPage(pdfDocument, title, listName)
+                    myPage = resIng.first; canvas = resIng.second; y = START_Y; column = 1; x = COL1_X
+                }
+                canvas.drawText("--- SHOPPING LIST ---", PAGE_WIDTH/2, y, sectionPaint); y += 35f
+                sectionStartY = y
+                ingredientGroups.forEach { group ->
+                    val rG = checkLayout(pdfDocument, myPage, y, column, title, listName, sectionStartY)
+                    myPage = rG.first; column = rG.second; y = rG.third; canvas = myPage.canvas
+                    if (column == 1 && y == START_Y) sectionStartY = START_Y
+                    x = if (column == 1) COL1_X else COL2_X
 
-            canvas.drawText(group.group_name, x, y, Paint().apply { isFakeBoldText = true; textSize = 12f; color = MAROON }); y += 16f
-            data.allIngredients.filter { it.group_id == group.id }.forEach { ing ->
-                val rI = checkLayout(pdfDocument, myPage, y, column, title, listName, sectionStartY)
-                myPage = rI.first; column = rI.second; y = rI.third; canvas = myPage.canvas
-                if (column == 1 && y == START_Y) sectionStartY = START_Y
-                x = if (column == 1) COL1_X else COL2_X
-                canvas.drawText("• ${ing.ingredient_name}", x, y, detailPaint); y += 14f
+                    canvas.drawText(group.group_name, x, y, Paint().apply { isFakeBoldText = true; textSize = 12f; color = MAROON }); y += 16f
+                    data.allIngredients?.filter { it.group_id == group.id }?.forEach { ing ->
+                        val rI = checkLayout(pdfDocument, myPage, y, column, title, listName, sectionStartY)
+                        myPage = rI.first; column = rI.second; y = rI.third; canvas = myPage.canvas
+                        if (column == 1 && y == START_Y) sectionStartY = START_Y
+                        x = if (column == 1) COL1_X else COL2_X
+                        canvas.drawText("• ${ing.ingredient_name}", x, y, detailPaint); y += 14f
+                    }
+                    y += 10f
+                }
             }
-            y += 10f
         }
 
         pdfDocument.finishPage(myPage)
@@ -405,7 +439,8 @@ object PdfGenerator {
             x = if (column == 1) COL1_X else COL2_X
 
             val status = if (entry.is_checked == 1) "[X]" else "[ ]"
-            canvas.drawText("$status ${entry.entry_name} (x${entry.quantity})", x, y, boldPaint); y += 20f
+            val weightStr = if (entry.weightGrams > 0) " (${formatWeight(entry.weightGrams)})" else ""
+            canvas.drawText("$status ${entry.entry_name} (x${entry.quantity})$weightStr", x, y, boldPaint); y += 20f
 
             if (entry.entry_type == "container") {
                 allItems[entry.entry_id]?.forEach { item ->
@@ -414,7 +449,8 @@ object PdfGenerator {
                     if (column == 1 && y == START_Y) sectionStartY = START_Y
                     x = if (column == 1) COL1_X else COL2_X
                     val itemStatus = if (item.is_checked == 1) "[X]" else "[ ]"
-                    canvas.drawText("      $itemStatus ${item.item_name} (x${item.quantity})", x, y, itemPaint); y += 18f
+                    val itemWeightStr = if (item.weightGrams > 0) " (${formatWeight(item.weightGrams)})" else ""
+                    canvas.drawText("      $itemStatus ${item.item_name} (x${item.quantity})$itemWeightStr", x, y, itemPaint); y += 18f
                     
                     if (item.is_container) {
                         subItemsByItemId[item.item_id]?.forEach { subItem ->
@@ -423,7 +459,8 @@ object PdfGenerator {
                             if (column == 1 && y == START_Y) sectionStartY = START_Y
                             x = if (column == 1) COL1_X else COL2_X
                             val ssStatus = if (subItem.is_checked == 1) "[X]" else "[ ]"
-                            canvas.drawText("            $ssStatus ${subItem.name} (x${subItem.quantity})", x, y, itemPaint); y += 16f
+                            val ssWeightStr = if (subItem.weightGrams > 0) " (${formatWeight(subItem.weightGrams)})" else ""
+                            canvas.drawText("            $ssStatus ${subItem.name} (x${subItem.quantity})$ssWeightStr", x, y, itemPaint); y += 16f
                         }
                     }
                 }

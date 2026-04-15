@@ -92,7 +92,7 @@ object DataSharingManager {
             try {
                 repository.importFullTripData(data)
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(context, "Trip '${data.list.name}' imported as a new list!", Toast.LENGTH_LONG).show()
+                    Toast.makeText(context, "Trip '${data.list?.name ?: "Unknown"}' imported as a new list!", Toast.LENGTH_LONG).show()
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -111,7 +111,7 @@ object DataSharingManager {
             try {
                 repository.mergeTripData(data)
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(context, "Trip '${data.list.name}' synced successfully!", Toast.LENGTH_LONG).show()
+                    Toast.makeText(context, "Trip '${data.list?.name ?: "Unknown"}' synced successfully!", Toast.LENGTH_LONG).show()
                 }
             } catch (e: Exception) {
                 e.printStackTrace()

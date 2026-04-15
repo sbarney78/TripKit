@@ -70,7 +70,8 @@ fun HomeScreen(
     onViewPdf: (String) -> Unit,
     onCreateTemplate: () -> Unit,
     onEditTemplate: (Int) -> Unit,
-    onManagePayloads: () -> Unit = {}
+    onManagePayloads: () -> Unit = {},
+    onAbout: () -> Unit = {}
 ) {
     val lists by viewModel.lists.collectAsState()
     val progress by viewModel.packingProgress.collectAsState()
@@ -104,6 +105,8 @@ fun HomeScreen(
     // Sync / Import State
     var dataToImport by remember { mutableStateOf<FullTripData?>(null) }
     var existingSyncList by remember { mutableStateOf<ListItem?>(null) }
+    var showImportRenameDialog by remember { mutableStateOf(false) }
+    var importedNewName by remember { mutableStateOf("") }
 
     val restoreLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument(),
@@ -118,9 +121,10 @@ fun HomeScreen(
             uri?.let {
                 scope.launch {
                     val data = DataSharingManager.readTripFile(context, it)
-                    if (data != null) {
+                    if (data?.list != null) {
                         dataToImport = data
                         existingSyncList = entryViewModel.repository.getListBySyncId(data.list.sync_id)
+                        importedNewName = "${data.list.name} (Imported)"
                     }
                 }
             }
@@ -128,38 +132,88 @@ fun HomeScreen(
     )
 
     // Handle Import/Sync Dialog
-    if (dataToImport != null) {
+    dataToImport?.let { data ->
         if (existingSyncList != null) {
             AlertDialog(
-                onDismissRequest = { dataToImport = null },
+                onDismissRequest = { 
+                    dataToImport = null
+                    existingSyncList = null
+                },
                 title = { Text("Trip Exists") },
-                text = { Text("A list named '${existingSyncList!!.name}' already exists. Would you like to sync updates to it or create a brand new copy?") },
+                text = { Text("A list named '${existingSyncList?.name}' already exists. Would you like to sync updates to it or create a brand new copy?") },
                 confirmButton = {
                     Button(onClick = {
                         scope.launch { 
-                            DataSharingManager.mergeIntoExisting(context, entryViewModel.repository, dataToImport!!)
+                            DataSharingManager.mergeIntoExisting(context, entryViewModel.repository, data)
                             viewModel.loadLists() // Refresh
                         }
                         dataToImport = null
+                        existingSyncList = null
                     }) { Text("Sync Updates") }
                 },
                 dismissButton = {
                     TextButton(onClick = {
-                        scope.launch { 
-                            DataSharingManager.importAsNew(context, entryViewModel.repository, dataToImport!!)
-                            viewModel.loadLists() // Refresh
-                        }
-                        dataToImport = null
+                        showImportRenameDialog = true
                     }) { Text("Create New Copy") }
                 }
             )
-        } else {
-            // No conflict, just import immediately
-            LaunchedEffect(dataToImport) {
-                DataSharingManager.importAsNew(context, entryViewModel.repository, dataToImport!!)
+        } else if (!showImportRenameDialog) {
+            // No conflict, but let's show rename dialog anyway to be safe, or just import
+            LaunchedEffect(data) {
+                DataSharingManager.importAsNew(context, entryViewModel.repository, data)
                 viewModel.loadLists() // Refresh
                 dataToImport = null
             }
+        }
+    }
+
+    if (showImportRenameDialog) {
+        dataToImport?.let { data ->
+            AlertDialog(
+                onDismissRequest = { 
+                    showImportRenameDialog = false 
+                    dataToImport = null
+                    existingSyncList = null
+                },
+                title = { Text("Import as New Copy") },
+                text = {
+                    Column {
+                        Text("Enter a name for the new copy:")
+                        Spacer(Modifier.height(8.dp))
+                        OutlinedTextField(
+                            value = importedNewName,
+                            onValueChange = { importedNewName = it },
+                            label = { Text("New Trip Name") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                },
+                confirmButton = {
+                    Button(onClick = {
+                        scope.launch {
+                            val listData = data.list
+                            if (listData != null) {
+                                val renamedData = data.copy(
+                                    list = listData.copy(name = importedNewName)
+                                )
+                                DataSharingManager.importAsNew(context, entryViewModel.repository, renamedData)
+                                viewModel.loadLists()
+                            }
+                        }
+                        showImportRenameDialog = false
+                        dataToImport = null
+                        existingSyncList = null
+                    }) { Text("Import") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { 
+                        showImportRenameDialog = false
+                        dataToImport = null 
+                        existingSyncList = null
+                    }) { Text("Cancel") }
+                }
+            )
         }
     }
 
@@ -211,13 +265,22 @@ fun HomeScreen(
 
                     var backupMenuExpanded by remember { mutableStateOf(false) }
                     Box {
-                        HomeIconButton(Icons.Default.Settings, "Backups/Restore") {
+                        HomeIconButton(Icons.Default.Settings, "Settings/About") {
                             backupMenuExpanded = true
                         }
                         DropdownMenu(
                             expanded = backupMenuExpanded,
                             onDismissRequest = { backupMenuExpanded = false }
                         ) {
+                            DropdownMenuItem(
+                                text = { Text("About TripKit") },
+                                leadingIcon = { Icon(Icons.Default.Info, contentDescription = null) },
+                                onClick = {
+                                    backupMenuExpanded = false
+                                    onAbout()
+                                }
+                            )
+                            HorizontalDivider()
                             DropdownMenuItem(
                                 text = { Text("Import Trip") },
                                 leadingIcon = { Icon(Icons.Default.Input, contentDescription = null) },
@@ -378,57 +441,145 @@ fun HomeScreen(
                             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp, modifier = Modifier.padding(vertical = 4.dp))
 
                             if (list.show_inventory || list.show_menu) {
+                                val clipboard by viewModel.clipboard.collectAsState()
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
                                     if (list.show_inventory) {
-                                        Button(
-                                            onClick = { onOpenInventory(list.id) },
-                                            modifier = Modifier.weight(1f),
-                                            contentPadding = PaddingValues(vertical = 12.dp)
-                                        ) {
-                                            Text("Inventory")
+                                        var invMenuExpanded by remember { mutableStateOf(false) }
+                                        Box(modifier = Modifier.weight(1f)) {
+                                            Button(
+                                                onClick = { onOpenInventory(list.id) },
+                                                modifier = Modifier.fillMaxWidth(),
+                                                contentPadding = PaddingValues(vertical = 12.dp),
+                                                enabled = true
+                                            ) {
+                                                Text("Inventory")
+                                            }
+                                            // Invisible layer for long press
+                                            Box(modifier = Modifier.matchParentSize().combinedClickable(
+                                                onClick = { onOpenInventory(list.id) },
+                                                onLongClick = { invMenuExpanded = true }
+                                            ))
+                                            DropdownMenu(expanded = invMenuExpanded, onDismissRequest = { invMenuExpanded = false }) {
+                                                DropdownMenuItem(
+                                                    text = { Text("Copy Inventory") },
+                                                    leadingIcon = { Icon(Icons.Default.ContentCopy, null) },
+                                                    onClick = { viewModel.copyToClipboard("Inventory", list.id); invMenuExpanded = false }
+                                                )
+                                                if (clipboard?.type == "Inventory") {
+                                                    DropdownMenuItem(
+                                                        text = { Text("Paste Inventory") },
+                                                        leadingIcon = { Icon(Icons.Default.ContentPaste, null) },
+                                                        onClick = { viewModel.pasteFromClipboard(list.id); invMenuExpanded = false }
+                                                    )
+                                                }
+                                            }
                                         }
                                     }
 
                                     if (list.show_menu) {
-                                        Button(
-                                            onClick = { onOpenMenu(list.id) },
-                                            modifier = Modifier.weight(1f),
-                                            contentPadding = PaddingValues(vertical = 12.dp)
-                                        ) {
-                                            Text("Menu")
+                                        var menuMenuExpanded by remember { mutableStateOf(false) }
+                                        Box(modifier = Modifier.weight(1f)) {
+                                            Button(
+                                                onClick = { onOpenMenu(list.id) },
+                                                modifier = Modifier.fillMaxWidth(),
+                                                contentPadding = PaddingValues(vertical = 12.dp)
+                                            ) {
+                                                Text("Menu")
+                                            }
+                                            Box(modifier = Modifier.matchParentSize().combinedClickable(
+                                                onClick = { onOpenMenu(list.id) },
+                                                onLongClick = { menuMenuExpanded = true }
+                                            ))
+                                            DropdownMenu(expanded = menuMenuExpanded, onDismissRequest = { menuMenuExpanded = false }) {
+                                                DropdownMenuItem(
+                                                    text = { Text("Copy Menu") },
+                                                    leadingIcon = { Icon(Icons.Default.ContentCopy, null) },
+                                                    onClick = { viewModel.copyToClipboard("Menu", list.id); menuMenuExpanded = false }
+                                                )
+                                                if (clipboard?.type == "Menu") {
+                                                    DropdownMenuItem(
+                                                        text = { Text("Paste Menu") },
+                                                        leadingIcon = { Icon(Icons.Default.ContentPaste, null) },
+                                                        onClick = { viewModel.pasteFromClipboard(list.id); menuMenuExpanded = false }
+                                                    )
+                                                }
+                                            }
                                         }
                                     }
                                 }
                             }
 
                             if (list.show_ingredients || list.show_itinerary) {
+                                val clipboard by viewModel.clipboard.collectAsState()
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
                                     if (list.show_ingredients) {
-                                        Button(
-                                            onClick = { onOpenIngredients(list.id) },
-                                            modifier = Modifier.weight(1f),
-                                            contentPadding = PaddingValues(vertical = 12.dp)
-                                        ) {
-                                            Text("Ingredients")
+                                        var ingMenuExpanded by remember { mutableStateOf(false) }
+                                        Box(modifier = Modifier.weight(1f)) {
+                                            Button(
+                                                onClick = { onOpenIngredients(list.id) },
+                                                modifier = Modifier.fillMaxWidth(),
+                                                contentPadding = PaddingValues(vertical = 12.dp)
+                                            ) {
+                                                Text("Ingredients")
+                                            }
+                                            Box(modifier = Modifier.matchParentSize().combinedClickable(
+                                                onClick = { onOpenIngredients(list.id) },
+                                                onLongClick = { ingMenuExpanded = true }
+                                            ))
+                                            DropdownMenu(expanded = ingMenuExpanded, onDismissRequest = { ingMenuExpanded = false }) {
+                                                DropdownMenuItem(
+                                                    text = { Text("Copy Ingredients") },
+                                                    leadingIcon = { Icon(Icons.Default.ContentCopy, null) },
+                                                    onClick = { viewModel.copyToClipboard("Ingredients", list.id); ingMenuExpanded = false }
+                                                )
+                                                if (clipboard?.type == "Ingredients") {
+                                                    DropdownMenuItem(
+                                                        text = { Text("Paste Ingredients") },
+                                                        leadingIcon = { Icon(Icons.Default.ContentPaste, null) },
+                                                        onClick = { viewModel.pasteFromClipboard(list.id); ingMenuExpanded = false }
+                                                    )
+                                                }
+                                            }
                                         }
                                     }
                                     
                                     if (list.show_itinerary) {
-                                        Button(
-                                            onClick = { onOpenItinerary(list.id) },
-                                            modifier = Modifier.weight(1f),
-                                            contentPadding = PaddingValues(vertical = 12.dp),
-                                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
-                                        ) {
-                                            Icon(Icons.Default.Assignment, contentDescription = null, modifier = Modifier.size(18.dp))
-                                            Spacer(Modifier.width(8.dp))
-                                            Text("Itinerary")
+                                        var itiMenuExpanded by remember { mutableStateOf(false) }
+                                        Box(modifier = Modifier.weight(1f)) {
+                                            Button(
+                                                onClick = { onOpenItinerary(list.id) },
+                                                modifier = Modifier.fillMaxWidth(),
+                                                contentPadding = PaddingValues(vertical = 12.dp),
+                                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
+                                            ) {
+                                                Icon(Icons.Default.Assignment, contentDescription = null, modifier = Modifier.size(18.dp))
+                                                Spacer(Modifier.width(8.dp))
+                                                Text("Itinerary")
+                                            }
+                                            Box(modifier = Modifier.matchParentSize().combinedClickable(
+                                                onClick = { onOpenItinerary(list.id) },
+                                                onLongClick = { itiMenuExpanded = true }
+                                            ))
+                                            DropdownMenu(expanded = itiMenuExpanded, onDismissRequest = { itiMenuExpanded = false }) {
+                                                DropdownMenuItem(
+                                                    text = { Text("Copy Itinerary") },
+                                                    leadingIcon = { Icon(Icons.Default.ContentCopy, null) },
+                                                    onClick = { viewModel.copyToClipboard("Itinerary", list.id); itiMenuExpanded = false }
+                                                )
+                                                if (clipboard?.type == "Itinerary") {
+                                                    DropdownMenuItem(
+                                                        text = { Text("Paste Itinerary") },
+                                                        leadingIcon = { Icon(Icons.Default.ContentPaste, null) },
+                                                        onClick = { viewModel.pasteFromClipboard(list.id); itiMenuExpanded = false }
+                                                    )
+                                                }
+                                            }
                                         }
                                     }
                                 }

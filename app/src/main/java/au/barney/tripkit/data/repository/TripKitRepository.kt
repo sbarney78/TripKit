@@ -991,8 +991,9 @@ class TripKitRepository(private val dao: TripKitDao) {
 
 
     suspend fun importFullTripData(data: FullTripData) {
+        val dataList = data.list ?: return
         val newListId = dao.insertList(
-            data.list.copy(
+            dataList.copy(
                 id = 0,
                 sync_id = UUID.randomUUID().toString(),
                 created_at = getCurrentTimestamp(),
@@ -1000,16 +1001,18 @@ class TripKitRepository(private val dao: TripKitDao) {
             )
         ).toInt()
 
-        data.itinerary.forEach { item ->
+        importInventory(newListId, data.entries ?: emptyList(), data.allItems ?: emptyList(), data.allSubItems ?: emptyList())
+
+        data.itinerary?.forEach { item ->
             dao.insertItineraryItem(item.copy(id = 0, list_id = newListId, sync_id = UUID.randomUUID().toString(), last_updated = System.currentTimeMillis()))
         }
 
-        data.menu.forEach { meal ->
+        data.menu?.forEach { meal ->
             dao.insertMenuItem(meal.copy(id = 0, list_id = newListId, sync_id = UUID.randomUUID().toString(), last_updated = System.currentTimeMillis()))
         }
 
         val groupMap = mutableMapOf<Int, Int>() // old group id -> new group id
-        data.ingredientGroups.forEach { group ->
+        data.ingredientGroups?.forEach { group ->
             val newGroupId = dao.insertIngredientGroup(
                 group.copy(
                     id = 0, 
@@ -1020,7 +1023,7 @@ class TripKitRepository(private val dao: TripKitDao) {
             groupMap[group.id] = newGroupId
         }
 
-        data.allIngredients.forEach { ing ->
+        data.allIngredients?.forEach { ing ->
             val newGroupId = groupMap[ing.group_id] ?: return@forEach
             dao.insertIngredient(
                 ing.copy(
@@ -1031,12 +1034,102 @@ class TripKitRepository(private val dao: TripKitDao) {
                 )
             )
         }
-
-        // Logic for entries, items and sub items would go here too if fully implementing import
     }
 
     suspend fun mergeTripData(data: FullTripData) {
-        // Implement complex merge logic here if needed
+        val dataList = data.list ?: return
+        val existingList = dao.getListBySyncId(dataList.sync_id) ?: return
+        val listId = existingList.id
+
+        // Update basic list info
+        dao.updateList(dataList.copy(id = listId, last_updated = System.currentTimeMillis()))
+
+        // Merge Inventory
+        data.entries?.forEach { entry ->
+            val existingEntry = dao.getEntryBySyncId(entry.sync_id, listId)
+            val entryId = if (existingEntry != null) {
+                if (entry.last_updated > (existingEntry.last_updated ?: 0L)) {
+                    dao.updateEntry(entry.copy(entry_id = existingEntry.entry_id, list_id = listId))
+                }
+                existingEntry.entry_id
+            } else {
+                dao.insertEntry(entry.copy(entry_id = 0, list_id = listId)).toInt()
+            }
+
+            // Merge Items
+            data.allItems?.filter { it.entry_id == entry.entry_id }?.forEach { item ->
+                val existingItem = dao.getItemBySyncId(item.sync_id, entryId)
+                val itemId = if (existingItem != null) {
+                    if (item.last_updated > (existingItem.last_updated ?: 0L)) {
+                        dao.updateItem(item.copy(item_id = existingItem.item_id, entry_id = entryId))
+                    }
+                    existingItem.item_id
+                } else {
+                    dao.insertItem(item.copy(item_id = 0, entry_id = entryId)).toInt()
+                }
+
+                // Merge SubItems
+                data.allSubItems?.filter { it.item_id == item.item_id }?.forEach { sub ->
+                    val existingSub = dao.getSubItemBySyncId(sub.sync_id, itemId)
+                    if (existingSub != null) {
+                        if (sub.last_updated > (existingSub.last_updated ?: 0L)) {
+                            dao.updateSubItem(sub.copy(id = existingSub.id, item_id = itemId))
+                        }
+                    } else {
+                        dao.insertSubItem(sub.copy(id = 0, item_id = itemId))
+                    }
+                }
+            }
+        }
+
+        // Merge Itinerary
+        data.itinerary?.forEach { item ->
+            val existing = dao.getItineraryItemBySyncId(item.sync_id, listId)
+            if (existing != null) {
+                if (item.last_updated > (existing.last_updated ?: 0L)) {
+                    dao.updateItineraryItem(item.copy(id = existing.id, list_id = listId))
+                }
+            } else {
+                dao.insertItineraryItem(item.copy(id = 0, list_id = listId))
+            }
+        }
+
+        // Merge Menu
+        data.menu?.forEach { meal ->
+            val existing = dao.getMenuItemBySyncId(meal.sync_id, listId)
+            if (existing != null) {
+                if (meal.last_updated > (existing.last_updated ?: 0L)) {
+                    dao.updateMenuItem(meal.copy(id = existing.id, list_id = listId))
+                }
+            } else {
+                dao.insertMenuItem(meal.copy(id = 0, list_id = listId))
+            }
+        }
+
+        // Merge Ingredients
+        val groupMap = mutableMapOf<Int, Int>() // data group id -> db group id
+        data.ingredientGroups?.forEach { group ->
+            val existing = dao.getIngredientGroupBySyncId(group.sync_id, listId)
+            val groupId = if (existing != null) {
+                dao.updateIngredientGroup(group.copy(id = existing.id, list_id = listId))
+                existing.id
+            } else {
+                dao.insertIngredientGroup(group.copy(id = 0, list_id = listId)).toInt()
+            }
+            groupMap[group.id] = groupId
+        }
+
+        data.allIngredients?.forEach { ing ->
+            val groupId = groupMap[ing.group_id] ?: return@forEach
+            val existing = dao.getIngredientBySyncId(ing.sync_id, groupId)
+            if (existing != null) {
+                if (ing.last_updated > (existing.last_updated ?: 0L)) {
+                    dao.updateIngredient(ing.copy(id = existing.id, group_id = groupId))
+                }
+            } else {
+                dao.insertIngredient(ing.copy(id = 0, group_id = groupId))
+            }
+        }
     }
 
     suspend fun syncAllPicturesFromMaster() = coroutineScope {
@@ -1102,6 +1195,48 @@ class TripKitRepository(private val dao: TripKitDao) {
     suspend fun addMultipleFromMaster(templateId: Int, masterItemIds: List<Int>) {
         masterItemIds.forEach { id ->
             addTemplateEntry(templateId, id)
+        }
+    }
+
+    suspend fun importInventory(targetListId: Int, entries: List<Entry>, items: List<Item>, subItems: List<SubItem>) {
+        val entryIdMap = mutableMapOf<Int, Int>()
+        val itemIdMap = mutableMapOf<Int, Int>()
+
+        entries.forEach { entry ->
+            val newEntryId = dao.insertEntry(
+                entry.copy(
+                    entry_id = 0,
+                    list_id = targetListId,
+                    is_checked = 0,
+                    last_updated = System.currentTimeMillis()
+                )
+            ).toInt()
+            entryIdMap[entry.entry_id] = newEntryId
+        }
+
+        items.forEach { item ->
+            val newEntryId = entryIdMap[item.entry_id] ?: return@forEach
+            val newItemId = dao.insertItem(
+                item.copy(
+                    item_id = 0,
+                    entry_id = newEntryId,
+                    is_checked = 0,
+                    last_updated = System.currentTimeMillis()
+                )
+            ).toInt()
+            itemIdMap[item.item_id] = newItemId
+        }
+
+        subItems.forEach { sub ->
+            val newItemId = itemIdMap[sub.item_id] ?: return@forEach
+            dao.insertSubItem(
+                sub.copy(
+                    id = 0,
+                    item_id = newItemId,
+                    is_checked = 0,
+                    last_updated = System.currentTimeMillis()
+                )
+            )
         }
     }
 

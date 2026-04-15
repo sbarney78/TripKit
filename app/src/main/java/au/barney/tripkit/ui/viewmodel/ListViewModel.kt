@@ -35,8 +35,10 @@ class ListViewModel(
     private val _extraPayloadProfiles = MutableStateFlow<List<ExtraPayloadProfile>>(emptyList())
     val extraPayloadProfiles: StateFlow<List<ExtraPayloadProfile>> = _extraPayloadProfiles
 
-    private val _clipboard = MutableStateFlow<Any?>(null)
-    val clipboard: StateFlow<Any?> = _clipboard
+    private val _clipboard = MutableStateFlow<ClipboardData?>(null)
+    val clipboard: StateFlow<ClipboardData?> = _clipboard
+
+    data class ClipboardData(val type: String, val listId: Int, val data: Any)
 
     init {
         loadLists()
@@ -44,45 +46,83 @@ class ListViewModel(
         loadExtraPayloadProfiles()
     }
 
-    fun copyToClipboard(data: Any) {
-        _clipboard.value = data
+    fun copyToClipboard(type: String, listId: Int) {
+        viewModelScope.launch {
+            try {
+                val data = when (type) {
+                    "Menu" -> repository.getMenuSync(listId)
+                    "Ingredients" -> {
+                        val groups = repository.getIngredientGroupsSync(listId)
+                        val ingredients = repository.getAllIngredientsForListSync(listId)
+                        Pair(groups, ingredients)
+                    }
+                    "Itinerary" -> repository.getItinerarySync(listId)
+                    "Inventory" -> {
+                        val entries = repository.getEntriesSync(listId)
+                        val items = repository.getAllItemsForListSync(listId)
+                        val subItems = repository.getAllSubItemsForListSync(listId)
+                        Triple(entries, items, subItems)
+                    }
+                    else -> null
+                }
+                if (data != null) {
+                    _clipboard.value = ClipboardData(type, listId, data)
+                }
+            } catch (e: Exception) {
+                _error.value = "Copy failed: ${e.message}"
+            }
+        }
+    }
+
+    fun pasteFromClipboard(targetListId: Int) {
+        val clipboardData = _clipboard.value ?: return
+        viewModelScope.launch {
+            try {
+                when (clipboardData.type) {
+                    "Menu" -> {
+                        val menuItems = clipboardData.data as List<MenuItem>
+                        menuItems.forEach { 
+                            repository.addMenuItem(targetListId, it.day, it.meal_type, it.description)
+                        }
+                    }
+                    "Ingredients" -> {
+                        val (groups, ingredients) = clipboardData.data as Pair<List<IngredientGroup>, List<Ingredient>>
+                        groups.forEach { group ->
+                            val newGroupId = repository.addIngredientGroup(targetListId, group.group_name)
+                            ingredients.filter { it.group_id == group.id }.forEach { ing ->
+                                repository.addIngredient(newGroupId.toInt(), ing.ingredient_name, ing.quantity.toString(), ing.notes)
+                            }
+                        }
+                    }
+                    "Itinerary" -> {
+                        val itineraryItems = clipboardData.data as List<ItineraryItem>
+                        itineraryItems.forEach { 
+                            repository.addItineraryItem(
+                                targetListId, it.day, it.time, it.activity, it.notes,
+                                it.location, it.price, it.departure_day, it.departure_time,
+                                it.category, it.booking_ref, it.show_on_map
+                            )
+                        }
+                    }
+                    "Inventory" -> {
+                        val (entries, items, subItems) = clipboardData.data as Triple<List<Entry>, List<Item>, List<SubItem>>
+                        repository.importInventory(targetListId, entries, items, subItems)
+                    }
+                }
+                loadLists() // Refresh progress etc
+            } catch (e: Exception) {
+                _error.value = "Paste failed: ${e.message}"
+            }
+        }
     }
 
     fun clearClipboard() {
         _clipboard.value = null
     }
 
-    fun pasteFromClipboard(targetListId: Int) {
-        val data = _clipboard.value ?: return
-        viewModelScope.launch {
-            try {
-                when (data) {
-                    is MenuItem -> repository.addMenuItem(targetListId, data.day, data.meal_type, data.description)
-                    is IngredientGroup -> {
-                        val newGroupId = repository.addIngredientGroup(targetListId, data.group_name)
-                        repository.getAllIngredientsForListSync(targetListId)
-                            .filter { it.group_id == data.id }
-                            .forEach {
-                                repository.addIngredient(newGroupId.toInt(), it.ingredient_name, it.quantity.toString(), it.notes)
-                            }
-                    }
-                    is Ingredient -> {
-                        val groups = repository.getIngredientGroupsSync(targetListId)
-                        val groupId = if (groups.isNotEmpty()) groups.first().id else repository.addIngredientGroup(targetListId, "Pasted").toInt()
-                        repository.addIngredient(groupId, data.ingredient_name, data.quantity.toString(), data.notes)
-                    }
-                    is ItineraryItem -> {
-                        repository.addItineraryItem(
-                            targetListId, data.day, data.time, data.activity, data.notes,
-                            data.location, data.price, data.departure_day, data.departure_time,
-                            data.category, data.booking_ref, data.show_on_map
-                        )
-                    }
-                }
-            } catch (e: Exception) {
-                _error.value = "Paste failed: ${e.message}"
-            }
-        }
+    // Individual item copy/paste (keeping for backward compatibility if needed, or removing if strictly following new req)
+    fun copyItemToClipboard(data: Any) {
+        // This could be adapted to the new ClipboardData structure if needed
     }
 
     fun loadLists() {
