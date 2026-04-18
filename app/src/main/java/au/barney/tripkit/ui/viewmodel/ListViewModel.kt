@@ -4,14 +4,19 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import au.barney.tripkit.data.model.*
 import au.barney.tripkit.data.repository.TripKitRepository
+import au.barney.tripkit.util.PremiumManager
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 class ListViewModel(
-    val repository: TripKitRepository
+    val repository: TripKitRepository,
+    val isPremium: Boolean
 ) : ViewModel() {
 
     private val _lists = MutableStateFlow(emptyList<ListItem>())
@@ -40,10 +45,22 @@ class ListViewModel(
 
     data class ClipboardData(val type: String, val listId: Int, val data: Any)
 
+    val listsCount: StateFlow<Int> = repository.getListsCount()
+        .catch { e -> _error.value = e.message }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+
     init {
         loadLists()
         loadPayloadLocations()
         loadExtraPayloadProfiles()
+    }
+
+    fun clearError() {
+        _error.value = null
+    }
+
+    fun triggerLimitError() {
+        _error.value = "Limit reached: Maximum ${PremiumManager.LIST_LIMIT} list in free version."
     }
 
     fun copyToClipboard(type: String, listId: Int) {
@@ -162,6 +179,10 @@ class ListViewModel(
         showItinerary: Boolean = true,
         templateId: Int? = null
     ) {
+        if (!isPremium && listsCount.value >= PremiumManager.LIST_LIMIT) {
+            _error.value = "Limit reached: Maximum ${PremiumManager.LIST_LIMIT} list in free version."
+            return
+        }
         viewModelScope.launch {
             try {
                 repository.addList(name, showInventory, showMenu, showIngredients, showItinerary, templateId)
@@ -192,6 +213,10 @@ class ListViewModel(
     }
 
     fun duplicateList(listId: Int, newName: String) {
+        if (!isPremium && listsCount.value >= PremiumManager.LIST_LIMIT) {
+            _error.value = "Limit reached: Maximum ${PremiumManager.LIST_LIMIT} list in free version."
+            return
+        }
         viewModelScope.launch {
             _loading.value = true
             try {

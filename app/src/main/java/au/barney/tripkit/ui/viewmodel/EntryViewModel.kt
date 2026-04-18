@@ -6,14 +6,18 @@ import au.barney.tripkit.data.model.Entry
 import au.barney.tripkit.data.model.EntryWithCount
 import au.barney.tripkit.data.model.ListItem
 import au.barney.tripkit.data.repository.TripKitRepository
+import au.barney.tripkit.util.PremiumManager
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 class EntryViewModel(
-    val repository: TripKitRepository
+    val repository: TripKitRepository,
+    val isPremium: Boolean = true
 ) : ViewModel() {
 
     private val _entries = MutableStateFlow<List<Entry>>(emptyList())
@@ -34,7 +38,15 @@ class EntryViewModel(
     private val _currentList = MutableStateFlow<ListItem?>(null)
     val currentList: StateFlow<ListItem?> = _currentList
 
+    val totalMasterItemCount: StateFlow<Int> = repository.getTotalMasterItemCount()
+        .catch { e -> _error.value = e.message }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+
     private var loadJob: Job? = null
+
+    fun clearError() {
+        _error.value = null
+    }
 
     // ------------------ LOAD ENTRIES ------------------
 
@@ -96,6 +108,10 @@ class EntryViewModel(
     // ------------------ ADD ENTRY ------------------
 
     fun addEntry(listId: Int, name: String, quantity: Int, notes: String?, entryType: String, imagePath: String? = null, addToMaster: Boolean = false, color: String = "#800000", weightGrams: Int = 0, payloadLocationId: Int? = null) {
+        if (addToMaster && !isPremium && totalMasterItemCount.value >= PremiumManager.MASTER_ITEM_LIMIT) {
+            _error.value = "Limit reached: Maximum ${PremiumManager.MASTER_ITEM_LIMIT} items in Master Inventory for free version."
+            return
+        }
         viewModelScope.launch {
             try {
                 repository.addEntry(name, entryType, quantity, notes, listId, imagePath, addToMaster, color, weightGrams, payloadLocationId)

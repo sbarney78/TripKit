@@ -11,7 +11,8 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
 
 class ItineraryViewModel(
-    private val repository: TripKitRepository
+    private val repository: TripKitRepository,
+    val isPremium: Boolean = true
 ) : ViewModel() {
 
     private val _itinerary = MutableStateFlow<List<ItineraryItem>>(emptyList())
@@ -25,6 +26,10 @@ class ItineraryViewModel(
 
     private val _currentList = MutableStateFlow<ListItem?>(null)
     val currentList: StateFlow<ListItem?> = _currentList
+
+    fun clearError() {
+        _error.value = null
+    }
 
     fun loadItinerary(listId: Int) {
         viewModelScope.launch {

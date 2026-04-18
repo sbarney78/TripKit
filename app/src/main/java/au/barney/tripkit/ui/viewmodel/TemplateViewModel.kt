@@ -7,12 +7,19 @@ import au.barney.tripkit.data.model.TemplateEntry
 import au.barney.tripkit.data.model.TemplateItem
 import au.barney.tripkit.data.model.TemplateSubItem
 import au.barney.tripkit.data.repository.TripKitRepository
+import au.barney.tripkit.util.PremiumManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-class TemplateViewModel(private val repository: TripKitRepository) : ViewModel() {
+class TemplateViewModel(
+    private val repository: TripKitRepository,
+    val isPremium: Boolean
+) : ViewModel() {
 
     private val _templates = MutableStateFlow<List<Template>>(emptyList())
     val templates: StateFlow<List<Template>> = _templates
@@ -26,8 +33,21 @@ class TemplateViewModel(private val repository: TripKitRepository) : ViewModel()
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error
 
+    val templatesCount: StateFlow<Int> = repository.getTemplates()
+        .map { it.size }
+        .catch { e -> _error.value = e.message }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+
     init {
         loadTemplates()
+    }
+
+    fun clearError() {
+        _error.value = null
+    }
+
+    fun triggerLimitError() {
+        _error.value = "Limit reached: Maximum ${PremiumManager.TEMPLATE_LIMIT} templates in free version."
     }
 
     fun loadTemplates() {
@@ -43,6 +63,10 @@ class TemplateViewModel(private val repository: TripKitRepository) : ViewModel()
     }
 
     fun createTemplate(name: String, selectedMasterItemIds: List<Int>) {
+        if (!isPremium && templatesCount.value >= PremiumManager.TEMPLATE_LIMIT) {
+            _error.value = "Limit reached: Maximum ${PremiumManager.TEMPLATE_LIMIT} templates in free version."
+            return
+        }
         viewModelScope.launch {
             try {
                 repository.createTemplateFromSelection(name, selectedMasterItemIds)

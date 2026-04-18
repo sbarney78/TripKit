@@ -12,6 +12,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -38,6 +39,16 @@ fun MasterSubSubItemsScreen(
     onBack: () -> Unit
 ) {
     val items by viewModel.masterSubSubItems.collectAsState()
+    val error by viewModel.error.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(error) {
+        error?.let {
+            snackbarHostState.showSnackbar(it)
+            viewModel.clearError()
+        }
+    }
+
     val subItems by viewModel.masterSubItems.collectAsState()
     
     // Find the name of the container we are currently in
@@ -58,6 +69,11 @@ fun MasterSubSubItemsScreen(
 
     LaunchedEffect(masterSubItemId) {
         viewModel.loadMasterSubSubItems(masterSubItemId)
+    }
+
+    val totalMasterItemCount by viewModel.totalMasterItemCount.collectAsState()
+    val isPremiumMaster by remember(totalMasterItemCount) {
+        derivedStateOf { viewModel.isPremium || totalMasterItemCount < au.barney.tripkit.util.PremiumManager.MASTER_ITEM_LIMIT }
     }
 
     if (showAddDialog) {
@@ -163,6 +179,7 @@ fun MasterSubSubItemsScreen(
     }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { Text(containerName, fontWeight = FontWeight.Bold) },
@@ -178,8 +195,18 @@ fun MasterSubSubItemsScreen(
             )
         },
         floatingActionButton = {
-            DraggableFAB(onClick = { showAddDialog = true }) {
-                Text("+", style = MaterialTheme.typography.headlineSmall)
+            DraggableFAB(onClick = {
+                if (isPremiumMaster) {
+                    showAddDialog = true
+                } else {
+                    viewModel.triggerLimitError()
+                }
+            }) {
+                if (isPremiumMaster) {
+                    Text("+", style = MaterialTheme.typography.headlineSmall)
+                } else {
+                    Icon(Icons.Default.Lock, contentDescription = "Premium")
+                }
             }
         }
     ) { padding ->

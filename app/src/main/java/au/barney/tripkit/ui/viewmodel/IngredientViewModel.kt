@@ -13,7 +13,8 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
 
 class IngredientViewModel(
-    private val repository: TripKitRepository
+    private val repository: TripKitRepository,
+    val isPremium: Boolean = true
 ) : ViewModel() {
 
     private val _ingredients = MutableStateFlow<List<Ingredient>>(emptyList())
@@ -36,6 +37,10 @@ class IngredientViewModel(
 
     private var currentGroupId: Int = -1
     private var collectionJob: Job? = null
+
+    fun clearError() {
+        _error.value = null
+    }
 
     fun loadIngredients(groupId: Int) {
         if (currentGroupId == groupId) return

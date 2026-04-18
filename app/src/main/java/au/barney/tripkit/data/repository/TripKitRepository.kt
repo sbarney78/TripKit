@@ -5,6 +5,8 @@ import au.barney.tripkit.data.model.*
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.Dispatchers
 import java.text.SimpleDateFormat
 import java.util.*
 import kotlinx.coroutines.coroutineScope
@@ -19,6 +21,8 @@ class TripKitRepository(private val dao: TripKitDao) {
     // ------------------ LISTS ------------------
 
     fun getLists(): Flow<List<ListItem>> = dao.getLists()
+
+    fun getListsCount(): Flow<Int> = dao.getLists().map { it.size }
 
     suspend fun getList(listId: Int): ListItem? = dao.getList(listId)
 
@@ -685,6 +689,9 @@ class TripKitRepository(private val dao: TripKitDao) {
 
     suspend fun deleteMasterSubSubItem(id: Int) = dao.deleteMasterSubSubItem(id)
 
+    fun getTotalMasterItemCount(): Flow<Int> = dao.getTotalMasterItemCount()
+    suspend fun getTotalMasterItemCountSync(): Int = dao.getTotalMasterItemCountSync()
+
     // ------------------ ITINERARY ------------------
 
     fun getItinerary(listId: Int): Flow<List<ItineraryItem>> = dao.getItinerary(listId)
@@ -1327,7 +1334,7 @@ class TripKitRepository(private val dao: TripKitDao) {
                 extraPayloadWeightGrams = extraPayloadWeight,
                 payloadAnalysis = payloadDetails
             )
-        }
+        }.flowOn(Dispatchers.Default)
     }
 
     // ------------------ EXTRA PAYLOAD LOCATIONS ------------------

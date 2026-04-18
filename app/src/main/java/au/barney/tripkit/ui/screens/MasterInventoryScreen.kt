@@ -15,6 +15,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -42,6 +43,16 @@ fun MasterInventoryScreen(
     onOpenContainer: (Int) -> Unit
 ) {
     val itemsWithCount by viewModel.masterItemsWithCount.collectAsState()
+    val error by viewModel.error.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(error) {
+        error?.let {
+            snackbarHostState.showSnackbar(it)
+            viewModel.clearError()
+        }
+    }
+
     var showAddDialog by remember { mutableStateOf(false) }
     var newItemName by remember { mutableStateOf("") }
     var isContainer by remember { mutableStateOf(false) }
@@ -58,6 +69,11 @@ fun MasterInventoryScreen(
         "#008000", "#006400", "#228B22", "#008080", "#000080",
         "#0000FF", "#4B0082", "#800080", "#FF00FF", "#000000"
     )
+
+    val totalMasterItemCount by viewModel.totalMasterItemCount.collectAsState()
+    val isPremiumMaster by remember(totalMasterItemCount) {
+        derivedStateOf { viewModel.isPremium || totalMasterItemCount < au.barney.tripkit.util.PremiumManager.MASTER_ITEM_LIMIT }
+    }
 
     if (showAddDialog) {
         AlertDialog(
@@ -249,6 +265,7 @@ fun MasterInventoryScreen(
     }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { Text("Master Inventory", fontWeight = FontWeight.Bold) },
@@ -266,8 +283,18 @@ fun MasterInventoryScreen(
             )
         },
         floatingActionButton = {
-            DraggableFAB(onClick = { showAddDialog = true }) {
-                Text("+", style = MaterialTheme.typography.headlineSmall)
+            DraggableFAB(onClick = {
+                if (isPremiumMaster) {
+                    showAddDialog = true
+                } else {
+                    viewModel.triggerLimitError()
+                }
+            }) {
+                if (isPremiumMaster) {
+                    Text("+", style = MaterialTheme.typography.headlineSmall)
+                } else {
+                    Icon(Icons.Default.Lock, contentDescription = "Premium")
+                }
             }
         }
     ) { padding ->
@@ -276,7 +303,10 @@ fun MasterInventoryScreen(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            items(itemsWithCount) { itemWithCount ->
+            items(
+                items = itemsWithCount,
+                key = { it.item.id }
+            ) { itemWithCount ->
                 MasterItemRow(
                     item = itemWithCount.item,
                     subItemCount = itemWithCount.subItemCount,

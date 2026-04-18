@@ -70,7 +70,10 @@ fun ListScreen(
                             .padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        items(lists) { list ->
+                        items(
+                            items = lists,
+                            key = { it.id }
+                        ) { list ->
                             Card(
                                 modifier = Modifier
                                     .fillMaxWidth(),

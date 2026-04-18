@@ -4,14 +4,19 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import au.barney.tripkit.data.model.*
 import au.barney.tripkit.data.repository.TripKitRepository
+import au.barney.tripkit.util.PremiumManager
+import android.content.Context
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 class MasterItemViewModel(
-    private val repository: TripKitRepository
+    private val repository: TripKitRepository,
+    val isPremium: Boolean
 ) : ViewModel() {
 
     private val _masterItems = MutableStateFlow<List<MasterItem>>(emptyList())
@@ -35,12 +40,24 @@ class MasterItemViewModel(
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error
 
+    val totalMasterItemCount: StateFlow<Int> = repository.getTotalMasterItemCount()
+        .catch { e -> _error.value = e.message }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+
     // Keep track of which container we are currently looking at
     private var currentMasterItemId: Int? = null
     private var currentMasterSubItemId: Int? = null
 
     init {
         loadMasterItems()
+    }
+
+    fun clearError() {
+        _error.value = null
+    }
+
+    fun triggerLimitError() {
+        _error.value = "Limit reached: Maximum ${PremiumManager.MASTER_ITEM_LIMIT} items in free version."
     }
 
     fun loadMasterItems() {
@@ -72,6 +89,10 @@ class MasterItemViewModel(
     }
 
     fun addMasterItem(name: String, isContainer: Boolean, imagePath: String? = null, color: String = "#800000", weightGrams: Int = 0) {
+        if (!isPremium && (totalMasterItemCount.value) >= PremiumManager.MASTER_ITEM_LIMIT) {
+            _error.value = "Limit reached: Maximum ${PremiumManager.MASTER_ITEM_LIMIT} items in free version."
+            return
+        }
         viewModelScope.launch {
             try {
                 repository.addMasterItem(name, isContainer, weightGrams, imagePath, color)
@@ -131,6 +152,10 @@ class MasterItemViewModel(
     }
 
     fun addMasterSubItem(masterItemId: Int, name: String, qty: Int, isContainer: Boolean, imagePath: String? = null, color: String = "#800000", weightGrams: Int = 0) {
+        if (!isPremium && (totalMasterItemCount.value) >= PremiumManager.MASTER_ITEM_LIMIT) {
+            _error.value = "Limit reached: Maximum ${PremiumManager.MASTER_ITEM_LIMIT} items in free version."
+            return
+        }
         viewModelScope.launch {
             try {
                 repository.addMasterSubItem(masterItemId, name, isContainer, weightGrams, imagePath, color)
@@ -176,6 +201,10 @@ class MasterItemViewModel(
     }
 
     fun addMasterSubSubItem(subItemId: Int, name: String, qty: Int, isContainer: Boolean, imagePath: String? = null, weightGrams: Int = 0) {
+        if (!isPremium && (totalMasterItemCount.value) >= PremiumManager.MASTER_ITEM_LIMIT) {
+            _error.value = "Limit reached: Maximum ${PremiumManager.MASTER_ITEM_LIMIT} items in free version."
+            return
+        }
         viewModelScope.launch {
             try {
                 repository.addMasterSubSubItem(subItemId, name, weightGrams, imagePath)

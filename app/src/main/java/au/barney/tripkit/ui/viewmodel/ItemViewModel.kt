@@ -9,12 +9,17 @@ import au.barney.tripkit.data.repository.TripKitRepository
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.launch
 
 class ItemViewModel(
-    private val repository: TripKitRepository
+    private val repository: TripKitRepository,
+    val isPremium: Boolean = true
 ) : ViewModel() {
 
     private val _items = MutableStateFlow<List<Item>>(emptyList())
@@ -40,9 +45,16 @@ class ItemViewModel(
     private val _currentItem = MutableStateFlow<Item?>(null)
     val currentItem: StateFlow<Item?> = _currentItem
 
+    val totalMasterItemCount: StateFlow<Int> = repository.getTotalMasterItemCount()
+        .catch { e -> _error.value = e.message }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+
     private var loadJob: Job? = null
     private var allItemsJob: Job? = null
 
+    fun clearError() {
+        _error.value = null
+    }
 
     // ------------------ LOAD ALL ITEMS FOR ENTRY ------------------
 

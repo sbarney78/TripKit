@@ -1,16 +1,20 @@
 package au.barney.tripkit.ui.viewmodel
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import au.barney.tripkit.data.repository.TripKitRepository
+import au.barney.tripkit.util.PremiumManager
 
 class MasterItemViewModelFactory(
-    private val repository: TripKitRepository
+    private val repository: TripKitRepository,
+    private val context: Context
 ) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(MasterItemViewModel::class.java)) {
             @Suppress("UNCHECKED_CAST")
-            return MasterItemViewModel(repository) as T
+            val isPremium = PremiumManager.isPremium(context)
+            return MasterItemViewModel(repository, isPremium) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }

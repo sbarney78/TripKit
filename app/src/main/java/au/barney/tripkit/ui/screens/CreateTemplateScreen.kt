@@ -25,9 +25,20 @@ fun CreateTemplateScreen(
 ) {
     var templateName by remember { mutableStateOf("") }
     val masterItems by masterViewModel.masterItems.collectAsState()
+    val error by templateViewModel.error.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(error) {
+        error?.let {
+            snackbarHostState.showSnackbar(it)
+            templateViewModel.clearError()
+        }
+    }
+
     val selectedIds = remember { mutableStateListOf<Int>() }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { Text("Create Template", fontWeight = FontWeight.Bold) },

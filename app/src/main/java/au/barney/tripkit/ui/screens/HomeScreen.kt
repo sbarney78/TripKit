@@ -101,6 +101,28 @@ fun HomeScreen(
     // Master Template Dropdown
     var templateMenuExpanded by remember { mutableStateOf(false) }
     val templates by templateViewModel.templates.collectAsState()
+    val error by viewModel.error.collectAsState()
+    val templateError by templateViewModel.error.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(error) {
+        error?.let {
+            snackbarHostState.showSnackbar(it)
+            viewModel.clearError()
+        }
+    }
+
+    LaunchedEffect(templateError) {
+        templateError?.let {
+            snackbarHostState.showSnackbar(it)
+            templateViewModel.clearError()
+        }
+    }
+
+    val templatesCount by templateViewModel.templatesCount.collectAsState()
+    val isPremiumTemplate by remember(templatesCount) {
+        derivedStateOf { templateViewModel.isPremium || templatesCount < au.barney.tripkit.util.PremiumManager.TEMPLATE_LIMIT }
+    }
 
     // Sync / Import State
     var dataToImport by remember { mutableStateOf<FullTripData?>(null) }
@@ -217,7 +239,13 @@ fun HomeScreen(
         }
     }
 
+    val listsCount by viewModel.listsCount.collectAsState()
+    val isPremiumList by remember(listsCount) {
+        derivedStateOf { viewModel.isPremium || listsCount < au.barney.tripkit.util.PremiumManager.LIST_LIMIT }
+    }
+
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { 
@@ -239,11 +267,23 @@ fun HomeScreen(
                             onDismissRequest = { templateMenuExpanded = false }
                         ) {
                             DropdownMenuItem(
-                                text = { Text("Create Template", fontWeight = FontWeight.Bold) },
+                                text = { 
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text("Create Template", fontWeight = FontWeight.Bold)
+                                        if (!isPremiumTemplate) {
+                                            Spacer(Modifier.width(8.dp))
+                                            Icon(Icons.Default.Lock, contentDescription = "Premium", modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
+                                        }
+                                    }
+                                },
                                 leadingIcon = { Icon(Icons.Default.Add, contentDescription = null) },
                                 onClick = {
                                     templateMenuExpanded = false
-                                    onCreateTemplate()
+                                    if (isPremiumTemplate) {
+                                        onCreateTemplate()
+                                    } else {
+                                        templateViewModel.triggerLimitError()
+                                    }
                                 }
                             )
                             if (templates.isNotEmpty()) {
@@ -315,8 +355,18 @@ fun HomeScreen(
             )
         },
         floatingActionButton = {
-            DraggableFAB(onClick = { showAddDialog = true }) {
-                Text("+", style = MaterialTheme.typography.headlineSmall)
+            DraggableFAB(onClick = {
+                if (isPremiumList) {
+                    showAddDialog = true
+                } else {
+                    viewModel.triggerLimitError()
+                }
+            }) {
+                if (isPremiumList) {
+                    Text("+", style = MaterialTheme.typography.headlineSmall)
+                } else {
+                    Icon(Icons.Default.Lock, contentDescription = "Premium")
+                }
             }
         }
     ) { padding ->

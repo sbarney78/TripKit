@@ -16,6 +16,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -44,6 +45,16 @@ fun MasterSubItemsScreen(
     onOpenSubContainer: (Int) -> Unit = {}
 ) {
     val itemsWithCount by viewModel.masterSubItemsWithCount.collectAsState()
+    val error by viewModel.error.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(error) {
+        error?.let {
+            snackbarHostState.showSnackbar(it)
+            viewModel.clearError()
+        }
+    }
+
     val masterItems by viewModel.masterItems.collectAsState()
     
     // Find the name of the container we are currently in
@@ -71,6 +82,11 @@ fun MasterSubItemsScreen(
 
     LaunchedEffect(masterItemId) {
         viewModel.loadMasterSubItems(masterItemId)
+    }
+
+    val totalMasterItemCount by viewModel.totalMasterItemCount.collectAsState()
+    val isPremiumMaster by remember(totalMasterItemCount) {
+        derivedStateOf { viewModel.isPremium || totalMasterItemCount < au.barney.tripkit.util.PremiumManager.MASTER_ITEM_LIMIT }
     }
 
     if (showAddDialog) {
@@ -246,6 +262,7 @@ fun MasterSubItemsScreen(
     }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { Text(containerName, fontWeight = FontWeight.Bold) },
@@ -261,8 +278,18 @@ fun MasterSubItemsScreen(
             )
         },
         floatingActionButton = {
-            DraggableFAB(onClick = { showAddDialog = true }) {
-                Text("+", style = MaterialTheme.typography.headlineSmall)
+            DraggableFAB(onClick = {
+                if (isPremiumMaster) {
+                    showAddDialog = true
+                } else {
+                    viewModel.triggerLimitError()
+                }
+            }) {
+                if (isPremiumMaster) {
+                    Text("+", style = MaterialTheme.typography.headlineSmall)
+                } else {
+                    Icon(Icons.Default.Lock, contentDescription = "Premium")
+                }
             }
         }
     ) { padding ->
@@ -271,7 +298,10 @@ fun MasterSubItemsScreen(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            items(itemsWithCount) { itemWithCount ->
+            items(
+                items = itemsWithCount,
+                key = { it.subItem.id }
+            ) { itemWithCount ->
                 MasterSubItemRow(
                     item = itemWithCount.subItem,
                     subSubItemCount = itemWithCount.subSubItemCount,
@@ -315,10 +345,12 @@ fun MasterSubItemRow(
             ) {
                 // Colored vertical line for sub-containers
                 if (item.is_container) {
-                    val lineColor = try {
-                        Color(android.graphics.Color.parseColor(item.color))
-                    } catch (e: Exception) {
-                        MaterialTheme.colorScheme.primary
+                    val lineColor = remember(item.color) {
+                        try {
+                            Color(android.graphics.Color.parseColor(item.color))
+                        } catch (e: Exception) {
+                            Color(0xFF800000) // Default Maroon if parse fails
+                        }
                     }
                     Box(
                         modifier = Modifier

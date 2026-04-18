@@ -288,6 +288,12 @@ interface TripKitDao {
     @Query("DELETE FROM master_items WHERE id = :id")
     suspend fun deleteMasterItem(id: Int)
 
+    @Query("SELECT (SELECT COUNT(*) FROM master_items) + (SELECT COUNT(*) FROM master_sub_items) + (SELECT COUNT(*) FROM master_sub_sub_items)")
+    fun getTotalMasterItemCount(): Flow<Int>
+
+    @Query("SELECT (SELECT COUNT(*) FROM master_items) + (SELECT COUNT(*) FROM master_sub_items) + (SELECT COUNT(*) FROM master_sub_sub_items)")
+    suspend fun getTotalMasterItemCountSync(): Int
+
     // ------------------ MASTER SUB ITEMS ------------------
     @Query("SELECT * FROM master_sub_items WHERE master_item_id = :masterItemId ORDER BY name COLLATE NOCASE ASC")
     fun getMasterSubItems(masterItemId: Int): Flow<List<MasterSubItem>>

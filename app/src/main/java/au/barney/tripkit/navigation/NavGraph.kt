@@ -26,15 +26,15 @@ fun AppNavGraph(modifier: Modifier = Modifier) {
     val database = TripKitDatabase.getDatabase(context)
     val repository = TripKitRepository(database.tripKitDao())
 
-    val listViewModel: ListViewModel = viewModel(factory = ListViewModelFactory(repository))
-    val entryViewModel: EntryViewModel = viewModel(factory = EntryViewModelFactory(repository))
-    val itemViewModel: ItemViewModel = viewModel(factory = ItemViewModelFactory(repository))
-    val menuViewModel: MenuViewModel = viewModel(factory = MenuViewModelFactory(repository))
-    val ingredientGroupViewModel: IngredientGroupViewModel = viewModel(factory = IngredientGroupViewModelFactory(repository))
-    val ingredientViewModel: IngredientViewModel = viewModel(factory = IngredientViewModelFactory(repository))
-    val masterItemViewModel: MasterItemViewModel = viewModel(factory = MasterItemViewModelFactory(repository))
-    val itineraryViewModel: ItineraryViewModel = viewModel(factory = ItineraryViewModelFactory(repository))
-    val templateViewModel: TemplateViewModel = viewModel(factory = TemplateViewModelFactory(repository))
+    val listViewModel: ListViewModel = viewModel(factory = ListViewModelFactory(repository, context))
+    val entryViewModel: EntryViewModel = viewModel(factory = EntryViewModelFactory(repository, context))
+    val itemViewModel: ItemViewModel = viewModel(factory = ItemViewModelFactory(repository, context))
+    val menuViewModel: MenuViewModel = viewModel(factory = MenuViewModelFactory(repository, context))
+    val ingredientGroupViewModel: IngredientGroupViewModel = viewModel(factory = IngredientGroupViewModelFactory(repository, context))
+    val ingredientViewModel: IngredientViewModel = viewModel(factory = IngredientViewModelFactory(repository, context))
+    val masterItemViewModel: MasterItemViewModel = viewModel(factory = MasterItemViewModelFactory(repository, context))
+    val itineraryViewModel: ItineraryViewModel = viewModel(factory = ItineraryViewModelFactory(repository, context))
+    val templateViewModel: TemplateViewModel = viewModel(factory = TemplateViewModelFactory(repository, context))
 
     NavHost(
         navController = navController,
